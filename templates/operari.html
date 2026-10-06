@@ -384,15 +384,28 @@
                         </button>
                     </form>
 
-                    <!-- Històric de referències imputades -->
-                    {% if t.Material_No_Subministrat %}
-                        <div class="border-t border-red-200 pt-2 mt-2">
+                <!-- Històric de referències imputades amb opció d'eliminar -->
+                    {% if t.historial_mat_no_subministrat %}
+                        <div class="border-t border-red-200 pt-2 mt-2 space-y-1">
                             <p class="font-bold text-red-900 text-[11px] mb-1">📋 Referències Imputades:</p>
-                            <div class="bg-white p-2 rounded border border-red-200 text-[11px] font-mono text-slate-700 whitespace-pre-line">
-                                {{ t.Material_No_Subministrat }}
+                            {% for item in t.historial_mat_no_subministrat %}
+                            <div class="bg-white p-2 rounded border border-red-200 text-[11px] flex justify-between items-center shadow-sm">
+                                <div>
+                                    <span class="font-bold text-slate-800">{{ item.referencia }}</span>
+                                    <div class="text-[10px] text-slate-500">🗓️ {{ item.data_hora }} (Op: {{ item.operari }})</div>
+                                </div>
+                                <form action="/eliminar_material_no_subministrat" method="POST" onsubmit="return confirm('Vols eliminar aquesta referència imputada?');">
+                                    <input type="hidden" name="csv_index" value="{{ t.csv_index }}">
+                                    <input type="hidden" name="mat_idx" value="{{ item.mat_idx }}">
+                                    <input type="hidden" name="operari_sel" value="{{ operari_sel }}">
+                                    <button type="submit" class="text-slate-400 hover:text-red-600 font-bold px-1.5 py-0.5 rounded text-xs" title="Eliminar referència">
+                                        🗑️
+                                    </button>
+                                </form>
                             </div>
+                            {% endfor %}
                         </div>
-                    {% endif %}
+                    {% endif %}    
                 </div>
             </details>
 
