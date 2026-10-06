@@ -70,7 +70,7 @@ def carregar_operaris():
 
 # TASQUES
 def carregar_tasques():
-    return carregar_taula("tasques", "tasques.csv", ["Embarcació", "Titol_Tasca", "Operari", "Estat", "Data_Inici"])
+    return carregar_taula("tasques", "tasques.csv", ["Embarcació", "Titol_Tasca", "Operari", "Estat", "Data_Inici", "Material_No_Subministrat"])
 
 def guardar_tasques(df):
     guardar_taula(df, "tasques", "tasques.csv")
