@@ -1,74 +1,73 @@
-import pandas as pd
 import os
+import pandas as pd
+from sqlalchemy import create_engine
 
-CSV_TASQUES = "tasques_individuals.csv"
-CSV_OPERARIS = "operaris.csv"
+# Detectar la connexió de PostgreSQL a Railway o utilitzar fitxers CSV en local
+DATABASE_URL = os.environ.get("DATABASE_URL")
 
-def carregar_operaris():
-    if os.path.exists(CSV_OPERARIS):
-        df = pd.read_csv(CSV_OPERARIS, dtype=str)
-        ops = sorted(df["Nom"].dropna().tolist())
-        if ops: return ops
+if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+
+def get_engine():
+    if DATABASE_URL:
+        return create_engine(DATABASE_URL)
+    return None
+
+def carregar_taula(nom_taula, fitxer_csv, columnes_default):
+    engine = get_engine()
+    if engine:
+        try:
+            df = pd.read_sql_table(nom_taula, con=engine, dtype=str).fillna("")
+            for col in columnes_default:
+                if col not in df.columns:
+                    df[col] = ""
+            return df
+        except Exception:
+            # Si la taula encara no existeix a PostgreSQL, carrega el CSV local
+            pass
     
-    defecte = ["MARC", "BRETT", "ERIC", "AMIN", "SOLA", "LEO", "ORIOL"]
-    pd.DataFrame({"Nom": defecte}).to_csv(CSV_OPERARIS, index=False)
-    return defecte
+    # Mode Local / Fallback CSV
+    path = os.path.join(os.getcwd(), fitxer_csv)
+    if os.path.exists(path):
+        try:
+            df = pd.read_csv(path, dtype=str).fillna("")
+            for col in columnes_default:
+                if col not in df.columns:
+                    df[col] = ""
+            return df
+        except Exception:
+            pass
+    return pd.DataFrame(columns=columnes_default)
 
-def carregar_tasques():
-    if os.path.exists(CSV_TASQUES):
-        df = pd.read_csv(CSV_TASQUES, dtype=str).fillna("")
-        for col in ["Embarcació", "Operari", "Titol_Tasca", "Tasques_Detall", "Prioritat", "Hores_Imputades", "Estat", "Inici_Crono", "Comentaris_Operari", "Notes_Text", "Material_Demanat"]:
-            if col not in df.columns:
-                df[col] = ""
-        return df
-    
-    dades_exemple = [
-        {"Embarcació": "PINCOY CBC", "Operari": "AMIN", "Titol_Tasca": "REFREDEDORS", "Tasques_Detall": "NETEJA REFREDEDORS", "Prioritat": "Normal", "Hores_Imputades": "0.0", "Estat": "Pendent", "Inici_Crono": "", "Comentaris_Operari": ""},
-        {"Embarcació": "SHAMAN", "Operari": "AMIN", "Titol_Tasca": "PASACASCOS", "Tasques_Detall": "REVISIO PASACASCOS", "Prioritat": "Urgent", "Hores_Imputades": "0.0", "Estat": "Pendent", "Inici_Crono": "", "Comentaris_Operari": ""}
-    ]
-    df_ex = pd.DataFrame(dades_exemple)
-    df_ex.to_csv(CSV_TASQUES, index=False)
-    return df_ex
+def guardar_taula(df, nom_taula, fitxer_csv):
+    engine = get_engine()
+    if engine:
+        try:
+            df.to_sql(nom_taula, con=engine, if_exists="replace", index=False)
+        except Exception as e:
+            print(f"Error guardant a Postgres: {e}")
 
-def guardar_tasques(df):
-    df.to_csv(CSV_TASQUES, index=False)
+    # Guardar sempre una còpia en CSV per seguretat
+    path = os.path.join(os.getcwd(), fitxer_csv)
+    df.to_csv(path, index=False)
 
-ARTICLES_CSV = "data/articles.csv"
+# --- FUNCIONS ESPECÍFIQUES DEL TEU PROJECTE ---
 
 def carregar_articles():
-    if not os.path.exists(ARTICLES_CSV):
-        # 📁 Crear la carpeta 'data' si no existeix abans de guardar
-        os.makedirs(os.path.dirname(ARTICLES_CSV), exist_ok=True)
-        df = pd.DataFrame(columns=["Ref", "Ref_Interna", "Descripcio"])
-        df.to_csv(ARTICLES_CSV, index=False)
-        return df
-    return pd.read_csv(ARTICLES_CSV, dtype=str).fillna("")
+    return carregar_taula("articles", "data/articles.csv", ["Ref", "Ref_Interna", "Descripcio", "Stock", "Ubicacio"])
 
 def guardar_articles(df):
-    os.makedirs(os.path.dirname(ARTICLES_CSV), exist_ok=True)
-    df.to_csv(ARTICLES_CSV, index=False)
+    guardar_taula(df, "articles", "data/articles.csv")
 
-CSV_ADMINS = "admins.csv"
+def carregar_operaris():
+    df = carregar_taula("operaris", "operaris.csv", ["Nom", "Cognoms", "Telefon", "Email", "Password"])
+    return df["Nom"].dropna().unique().tolist() if not df.empty and "Nom" in df.columns else []
 
-def carregar_admins():
-    if os.path.exists(CSV_ADMINS):
-        df = pd.read_csv(CSV_ADMINS, dtype=str).fillna("")
-        if not df.empty:
-            return df
-    
-    # Administrador creat per defecte la primera vegada
-    default_admin = [{
-        "Usuari": "admin",
-        "Nom": "Administrador",
-        "Email": "admin@motornautic.com",
-        "Password": "admin"  # Podran canviar-la posteriorment
-    }]
-    df_def = pd.DataFrame(default_admin)
-    df_def.to_csv(CSV_ADMINS, index=False)
-    return df_def
+def carregar_tasques():
+    return carregar_taula("tasques", "tasques.csv", ["Embarcació", "Titol_Tasca", "Operari", "Estat", "Data_Inici"])
 
-def guardar_admins(df):
-    df.to_csv(CSV_ADMINS, index=False)
+def guardar_tasques(df):
+    guardar_taula(df, "tasques", "tasques.csv")
 
 
 
