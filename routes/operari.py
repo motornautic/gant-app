@@ -776,26 +776,36 @@ def registrar_material_no_subministrat():
         df = carregar_tasques()
         df_articles = carregar_articles()
         
-        # Cerca de la descripció a la base de dades d'articles
         descripcio_trobada = ""
-        ref_neta = referencia_input.split(" - ")[0].split(" (")[0].strip()
+        stock_trobat = ""
+        ubicacio_trobada = ""
+        
+        # Netejar la referència si s'ha seleccionat del datalist
+        ref_neta = referencia_input.split(" - ")[0].split(" (")[0].split(" [")[0].strip()
         
         if not df_articles.empty:
             match = df_articles[df_articles["Ref"].str.strip().str.upper() == ref_neta.upper()]
             if not match.empty:
                 descripcio_trobada = str(match.iloc[0].get("Descripcio", "")).strip()
+                stock_trobat = str(match.iloc[0].get("Stock", "0")).strip()
+                ubicacio_trobada = str(match.iloc[0].get("Ubicacio", "")).strip()
         
-        # Si s'ha seleccionat de la llista "REF - DESCRIPCIO", n'extreiem el text
-        if not descripcio_trobada and " - " in referencia_input:
-            parts = referencia_input.split(" - ", 1)
-            ref_neta = parts[0].strip()
-            descripcio_trobada = parts[1].strip()
-
-        # Format del text a desar
+        # Construcció del format del text a desar
+        elements_text = []
         if descripcio_trobada:
-            ref_formatted = f"{ref_neta} ({descripcio_trobada})"
+            elements_text.append(f"{ref_neta} ({descripcio_trobada})")
         else:
-            ref_formatted = referencia_input
+            elements_text.append(referencia_input)
+
+        detalls_extra = []
+        if stock_trobat:
+            detalls_extra.append(f"Stock: {stock_trobat}")
+        if ubicacio_trobada:
+            detalls_extra.append(f"Ubicació: {ubicacio_trobada}")
+
+        ref_formatted = elements_text[0]
+        if detalls_extra:
+            ref_formatted += f" [{ ' | '.join(detalls_extra) }]"
 
         if 0 <= idx < len(df):
             if "Material_No_Subministrat" not in df.columns:
