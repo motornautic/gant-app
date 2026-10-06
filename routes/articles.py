@@ -1,7 +1,6 @@
-from flask import Blueprint, render_template, request, redirect, url_for, send_file, flash
+from flask import Blueprint, render_template, request, redirect, url_for, send_file
 import pandas as pd
 import io
-import os
 from db import carregar_articles, guardar_articles
 
 articles_bp = Blueprint('articles', __name__)
@@ -10,7 +9,11 @@ articles_bp = Blueprint('articles', __name__)
 def vista_articles():
     df = carregar_articles()
     
-    # Cerca per text (filtre)
+    # Assegurar que les noves columnes existeixin
+    for col in ["Stock", "Ubicacio"]:
+        if col not in df.columns:
+            df[col] = ""
+
     cerca = request.args.get("cerca", "").strip().lower()
     
     articles = []
@@ -19,16 +22,23 @@ def vista_articles():
             ref = str(row.get("Ref", "")).strip()
             ref_int = str(row.get("Ref_Interna", "")).strip()
             desc = str(row.get("Descripcio", "")).strip()
+            stock = str(row.get("Stock", "")).strip()
+            ubicacio = str(row.get("Ubicacio", "")).strip()
             
             if cerca:
-                if cerca not in ref.lower() and cerca not in ref_int.lower() and cerca not in desc.lower():
+                if (cerca not in ref.lower() and 
+                    cerca not in ref_int.lower() and 
+                    cerca not in desc.lower() and 
+                    cerca not in ubicacio.lower()):
                     continue
             
             articles.append({
                 "csv_index": idx,
                 "ref": ref,
                 "ref_interna": ref_int,
-                "descripcio": desc
+                "descripcio": desc,
+                "stock": stock if stock else "0",
+                "ubicacio": ubicacio if ubicacio else "-"
             })
             
     return render_template("articles.html", articles=articles, cerca=cerca)
@@ -38,12 +48,16 @@ def afegir_article():
     ref = request.form.get("ref", "").strip()
     ref_int = request.form.get("ref_interna", "").strip()
     desc = request.form.get("descripcio", "").strip()
+    stock = request.form.get("stock", "0").strip()
+    ubicacio = request.form.get("ubicacio", "").strip()
 
     df = carregar_articles()
     nou_article = pd.DataFrame([{
         "Ref": ref,
         "Ref_Interna": ref_int,
-        "Descripcio": desc
+        "Descripcio": desc,
+        "Stock": stock,
+        "Ubicacio": ubicacio
     }])
     
     df = pd.concat([df, nou_article], ignore_index=True)
@@ -60,7 +74,6 @@ def eliminar_article():
         guardar_articles(df)
     return redirect(url_for("articles.vista_articles"))
 
-# 📥 IMPORTAR ARTICLES DES D'EXCEL / CSV
 @articles_bp.route("/importar_articles", methods=["POST"])
 def importar_articles():
     if 'fitxer_excel' not in request.files:
@@ -71,13 +84,11 @@ def importar_articles():
         return redirect(url_for("articles.vista_articles"))
 
     try:
-        # Llegir segons si és .xlsx, .xls o .csv
         if file.filename.endswith('.csv'):
             df_nou = pd.read_csv(file, dtype=str).fillna("")
         else:
             df_nou = pd.read_excel(file, dtype=str).fillna("")
 
-        # Normalitzar columnes (accepta majúscules/minúscules o accents comuns)
         columnes_map = {}
         for col in df_nou.columns:
             c_clean = col.strip().lower()
@@ -85,19 +96,21 @@ def importar_articles():
                 columnes_map[col] = "Ref_Interna"
             elif "desc" in c_clean or "nom" in c_clean:
                 columnes_map[col] = "Descripcio"
+            elif "stock" in c_clean or "cant" in c_clean or "quant" in c_clean:
+                columnes_map[col] = "Stock"
+            elif "ubic" in c_clean or "prestatge" in c_clean or "magatzem" in c_clean:
+                columnes_map[col] = "Ubicacio"
             elif "ref" in c_clean or "codi" in c_clean or "article" in c_clean:
                 columnes_map[col] = "Ref"
 
         df_nou = df_nou.rename(columns=columnes_map)
 
-        # Assegurar columnes requerides
-        for c in ["Ref", "Ref_Interna", "Descripcio"]:
+        for c in ["Ref", "Ref_Interna", "Descripcio", "Stock", "Ubicacio"]:
             if c not in df_nou.columns:
                 df_nou[c] = ""
 
-        df_nou = df_nou[["Ref", "Ref_Interna", "Descripcio"]]
+        df_nou = df_nou[["Ref", "Ref_Interna", "Descripcio", "Stock", "Ubicacio"]]
 
-        # Carregar existents i fusionar
         df_existent = carregar_articles()
         df_final = pd.concat([df_existent, df_nou], ignore_index=True).drop_duplicates(subset=["Ref"], keep="last")
         
@@ -108,7 +121,6 @@ def importar_articles():
 
     return redirect(url_for("articles.vista_articles"))
 
-# 📤 EXPORTAR ARTICLES A EXCEL (.XLSX)
 @articles_bp.route("/exportar_articles", methods=["GET"])
 def exportar_articles():
     df = carregar_articles()
