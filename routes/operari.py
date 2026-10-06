@@ -824,3 +824,26 @@ def registrar_material_no_subministrat():
             
     return redirect(url_for("operari.vista_operari", operari=operari_sel))
 
+@operari_bp.route("/eliminar_material_no_subministrat", methods=["POST"])
+def eliminar_material_no_subministrat():
+    idx = int(request.form.get("csv_index"))
+    mat_idx = int(request.form.get("mat_idx"))
+    operari_sel = request.form.get("operari_sel")
+    
+    df = carregar_tasques()
+    if 0 <= idx < len(df):
+        text_actual = str(df.at[idx, "Material_No_Subministrat"]).strip()
+        registres = extreure_historial_material_no_subministrat(text_actual)
+        
+        if 0 <= mat_idx < len(registres):
+            reg_a_eliminar = registres[mat_idx]["raw_text"]
+            # Eliminar la línia corresponent
+            linies = [l.strip() for l in text_actual.split("\n") if l.strip()]
+            linies_filtrades = [l for l in linies if l != reg_a_eliminar]
+            
+            df.at[idx, "Material_No_Subministrat"] = "\n".join(linies_filtrades)
+            guardar_tasques(df)
+            
+    return redirect(url_for("operari.vista_operari", operari=operari_sel))
+
+
