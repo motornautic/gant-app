@@ -360,7 +360,6 @@
                         <input type="hidden" name="operari_sel" value="{{ operari_sel }}">
                         
                         <div class="flex space-x-2">
-                            <!-- 🏷️ Input connectat al datalist global d'articles -->
                             <input type="text" 
                                    id="input-ref-{{ t.csv_index }}" 
                                    name="referencia" 
@@ -384,7 +383,7 @@
                         </button>
                     </form>
 
-                <!-- Històric de referències imputades amb opció d'eliminar -->
+                    <!-- Llistat de referències imputades amb opció d'eliminar -->
                     {% if t.historial_mat_no_subministrat %}
                         <div class="border-t border-red-200 pt-2 mt-2 space-y-1">
                             <p class="font-bold text-red-900 text-[11px] mb-1">📋 Referències Imputades:</p>
@@ -392,7 +391,9 @@
                             <div class="bg-white p-2 rounded border border-red-200 text-[11px] flex justify-between items-center shadow-sm">
                                 <div>
                                     <span class="font-bold text-slate-800">{{ item.referencia }}</span>
-                                    <div class="text-[10px] text-slate-500">🗓️ {{ item.data_hora }} (Op: {{ item.operari }})</div>
+                                    {% if item.data_hora %}
+                                        <div class="text-[10px] text-slate-500">🗓️ {{ item.data_hora }} {% if item.operari %}(Op: {{ item.operari }}){% endif %}</div>
+                                    {% endif %}
                                 </div>
                                 <form action="/eliminar_material_no_subministrat" method="POST" onsubmit="return confirm('Vols eliminar aquesta referència imputada?');">
                                     <input type="hidden" name="csv_index" value="{{ t.csv_index }}">
@@ -405,7 +406,14 @@
                             </div>
                             {% endfor %}
                         </div>
-                    {% endif %}    
+                    {% elif t.Material_No_Subministrat and t.Material_No_Subministrat != 'nan' %}
+                        <div class="border-t border-red-200 pt-2 mt-2">
+                            <p class="font-bold text-red-900 text-[11px] mb-1">📋 Referències Imputades:</p>
+                            <div class="bg-white p-2 rounded border border-red-200 text-[11px] font-mono text-slate-700 whitespace-pre-line">
+                                {{ t.Material_No_Subministrat }}
+                            </div>
+                        </div>
+                    {% endif %}
                 </div>
             </details>
 
