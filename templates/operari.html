@@ -1,0 +1,543 @@
+{% extends "base.html" %}
+
+{% block content %}
+<!-- Llibreria per a la lectura de codi de barres/QR amb la càmera del mòbil -->
+<script src="https://unpkg.com/html5-qrcode"></script>
+
+<!-- 📦 DATALIST GLOBAL D'ARTICLES PER L'AUTOCOMPLETAT -->
+<datalist id="llista_articles_operari">
+    {% for art in articles %}
+        <option value="{{ art.ref }}">{{ art.etiqueta }}</option>
+    {% endfor %}
+</datalist>
+
+<!-- SELECCIÓ I GESTIÓ D'OPERARIS / PERFIL -->
+<div class="bg-blue-900 text-white p-4 rounded-xl shadow mb-6 space-y-3">
+    
+    <!-- 🛡️ BARRA SUPERIOR PER A L'ADMINISTRADOR (CANVI I CREACIÓ D'OPERARIS) -->
+    {% if es_admin %}
+    <div class="bg-amber-500/20 border border-amber-400/40 p-3 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs mb-2">
+        <div class="flex items-center space-x-2">
+            <span class="font-bold text-amber-300 flex items-center space-x-1">
+                <span>🛡️ Mode Administració</span>
+            </span>
+            <span class="text-slate-300">|</span>
+            <label class="font-semibold text-white">Veure panell de:</label>
+            <select onchange="window.location.href='/operari?operari=' + this.value" class="p-1.5 rounded bg-white text-slate-800 font-bold text-xs cursor-pointer shadow-sm">
+                {% for op in operaris %}
+                    <option value="{{ op }}" {% if op == operari_sel %}selected{% endif %}>👷 {{ op }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <!-- ➕ BOTÓ PER AFEGIR NOU OPERARI DIRECTAMENT -->
+        <button onclick="document.getElementById('modal-crear-operari').classList.toggle('hidden')" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-3 py-1.5 rounded-lg shadow transition flex items-center space-x-1 cursor-pointer">
+            <span>➕ Crear Nou Operari</span>
+        </button>
+    </div>
+
+    <!-- MODAL DESPLEGABLE CREAR OPERARI -->
+    <div id="modal-crear-operari" class="hidden bg-blue-950/95 p-4 rounded-xl border border-emerald-500/50 space-y-3 shadow-2xl">
+        <h3 class="text-xs font-bold text-emerald-300 border-b border-blue-800 pb-1">👷 Afegir Nou Operari al Taller</h3>
+        
+        <form action="/afegir_operari" method="POST" class="flex flex-col sm:flex-row items-center gap-2">
+            <input type="hidden" name="redirect_to" value="operari">
+            <input type="text" name="nom_operari" required placeholder="Nom del nou operari (Ex: JOAN)" class="w-full sm:flex-1 p-2 rounded text-xs font-bold text-slate-800 bg-white border">
+            <button type="submit" class="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-4 py-2 rounded text-xs shadow whitespace-nowrap cursor-pointer">
+                💾 Registrar Operari
+            </button>
+        </form>
+    </div>
+    {% endif %}
+
+    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+        <div>
+            <h2 class="text-xl font-bold">📱 Panell de Treball d'Operari</h2>
+            <p class="text-xs text-blue-200">Operari Actiu: <strong class="text-amber-300 text-sm">{{ operari_sel }}</strong></p>
+        </div>
+        
+        <div class="flex items-center space-x-2">
+            <!-- Botó El meu Perfil -->
+            <button onclick="document.getElementById('modal-perfil').classList.toggle('hidden')" class="bg-blue-700 hover:bg-blue-800 text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow flex items-center space-x-1">
+                <span>👤 Perfil</span>
+            </button>
+
+            <!-- Botó Canviar / Modificar Contrasenya -->
+            <button onclick="document.getElementById('modal-pwd').classList.toggle('hidden')" class="bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow flex items-center space-x-1">
+                <span>🔑 Contrasenya</span>
+            </button>
+
+            <!-- Botó Sortir / Tancar Sessió -->
+            <form action="/logout_operari" method="POST" class="inline">
+                <button type="submit" title="Tancar Sessió" class="bg-red-600/80 hover:bg-red-700 text-white text-xs font-bold px-2.5 py-1.5 rounded-lg shadow">
+                    🚪 Sortir
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL PERFIL D'USUARI -->
+    <div id="modal-perfil" class="hidden bg-blue-950/90 p-4 rounded-xl border border-blue-700 space-y-3">
+        <h3 class="text-xs font-bold text-amber-300 border-b border-blue-800 pb-1">👤 Dades Personals de {{ operari_sel }}</h3>
+        
+        <form action="/guardar_perfil_operari" method="POST" class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+            <input type="hidden" name="operari_sel" value="{{ operari_sel }}">
+            
+            <div>
+                <label class="block text-[10px] font-bold text-blue-200 mb-1">Nom:</label>
+                <input type="text" value="{{ perfil.Nom }}" disabled class="w-full p-2 rounded text-slate-500 font-bold bg-slate-200 border cursor-not-allowed">
+            </div>
+
+            <div>
+                <label class="block text-[10px] font-bold text-blue-200 mb-1">Cognoms:</label>
+                <input type="text" name="cognoms" value="{{ perfil.Cognoms }}" placeholder="Els teus cognoms..." class="w-full p-2 rounded text-slate-800 font-bold bg-white border">
+            </div>
+
+            <div>
+                <label class="block text-[10px] font-bold text-blue-200 mb-1">Telèfon de contacte:</label>
+                <input type="tel" name="telefon" value="{{ perfil.Telefon }}" placeholder="Ex: 600123456" class="w-full p-2 rounded text-slate-800 font-bold bg-white border">
+            </div>
+
+            <div>
+                <label class="block text-[10px] font-bold text-blue-200 mb-1">Correu Electrònic (per recuperar contrasenya):</label>
+                <input type="email" name="email" value="{{ perfil.Email }}" placeholder="nom@exemple.com" class="w-full p-2 rounded text-slate-800 font-bold bg-white border">
+            </div>
+
+            <div class="sm:col-span-2 flex justify-end">
+                <button type="submit" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-4 rounded text-xs shadow">
+                    💾 Desar Dades de Perfil
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- MODAL CANVIAR / RECUPERAR CONTRASENYA -->
+    <div id="modal-pwd" class="hidden bg-blue-950/90 p-4 rounded-xl border border-blue-700 space-y-4">
+        <h3 class="text-xs font-bold text-amber-300 border-b border-blue-800 pb-1">🔒 Gestió de Contrasenya ({{ operari_sel }})</h3>
+        
+        <form action="/canviar_contrasenya" method="POST" class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            <input type="hidden" name="operari_sel" value="{{ operari_sel }}">
+            <input type="password" name="pwd_actual" required placeholder="Contrasenya Actual" class="p-2 rounded text-xs text-slate-800 font-bold bg-white border">
+            <input type="password" name="pwd_nova" required placeholder="Nova Contrasenya" class="p-2 rounded text-xs text-slate-800 font-bold bg-white border">
+            <button type="submit" class="bg-amber-500 hover:bg-amber-600 text-white font-bold py-2 px-3 rounded text-xs shadow">
+                💾 Actualitzar Contrasenya
+            </button>
+        </form>
+
+        <div class="border-t border-blue-800 pt-3 flex flex-col sm:flex-row justify-between items-center gap-2">
+            <span class="text-[11px] text-blue-200">Has oblidat la teva contrasenya?</span>
+            <form action="/recuperar_contrasenya" method="POST" class="flex space-x-2">
+                <input type="hidden" name="operari_sel" value="{{ operari_sel }}">
+                <button type="submit" name="via" value="WhatsApp" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-2.5 py-1 rounded text-[10px]">
+                    💬 Demanar per WhatsApp
+                </button>
+                <button type="submit" name="via" value="Email" class="bg-blue-600 hover:bg-blue-700 text-white font-bold px-2.5 py-1 rounded text-[10px]">
+                    ✉️ Demanar per Email
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- LLISTAT DE TASQUES ASSIGNADES -->
+<div class="space-y-4">
+    <h3 class="font-bold text-sm text-slate-800 flex justify-between items-center">
+        <span>📋 Tasques Assignades ({{ tasques|length }})</span>
+    </h3>
+
+    {% if tasques %}
+        {% for t in tasques %}
+        <div class="bg-white rounded-xl shadow border p-4 border-l-8 {% if t.Prioritat == 'Urgent' %}border-red-600 ring-2 ring-red-400 bg-red-50/30{% elif t.crono_actiu_operari %}border-emerald-500 bg-emerald-50/20{% elif t.Estat == 'Finalitzada' %}border-slate-300 opacity-75{% else %}border-blue-600{% endif %}">
+            
+            <div class="flex justify-between items-start mb-2">
+                <div>
+                    {% if t.Prioritat == 'Urgent' %}
+                        <span class="bg-red-600 text-white font-bold px-2 py-0.5 rounded text-[10px] uppercase tracking-wide inline-block mb-1 animate-pulse">
+                            🔴 TASCA URGENT
+                        </span>
+                    {% endif %}
+                    <span class="text-xs font-bold text-blue-900 uppercase tracking-wide block">⛵ {{ t.Embarcació }}</span>
+                    <h4 class="text-base font-bold text-slate-800 mt-0.5">{{ t.Titol_Tasca }}</h4>
+                </div>
+                
+                <span class="text-xs font-bold px-2 py-1 rounded shadow-sm {% if t.crono_actiu_operari %}bg-emerald-100 text-emerald-800 animate-pulse{% elif t.Estat == 'Finalitzada' %}bg-slate-200 text-slate-700{% else %}bg-amber-100 text-amber-800{% endif %}">
+                    {% if t.crono_actiu_operari %}⏱️ TREBALLANT...{% else %}{{ t.Estat }}{% endif %}
+                </span>
+            </div>
+
+            <!-- 📅 DATA D'INICI PREVISTA -->
+            <div class="bg-slate-50 p-2 rounded-lg border flex items-center justify-between text-xs mb-3">
+                <span class="font-semibold text-slate-600">📅 Data d'inici prevista:</span>
+                {% if t.Data_Inici %}
+                    {% set d_parts = t.Data_Inici.split('-') %}
+                    {% if d_parts|length == 3 %}
+                         <span class="font-bold text-blue-900 bg-white px-2 py-0.5 rounded border border-slate-200">
+                            {{ d_parts[2] }}/{{ d_parts[1] }}/{{ d_parts[0] }}
+                        </span>
+                    {% else %}
+                        <span class="font-bold text-blue-900 bg-white px-2 py-0.5 rounded border border-slate-200">
+                            {{ t.Data_Inici }}
+                        </span>
+                    {% endif %}
+                 {% else %}
+                        <span class="font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 text-[11px]">
+                          En Espera (Sense data)
+                        </span>
+                {% endif %}
+            </div>
+
+            <!-- 📋 CHECKLIST INTERACTIVA -->
+            {% if t.checklist %}
+            <div class="bg-slate-50 p-3 rounded-lg border mb-3 space-y-2">
+                <div class="flex justify-between items-center mb-1">
+                    <span class="text-xs font-bold text-slate-800">📋 Checklist de Treballs:</span>
+                    <span class="text-[10px] font-bold text-blue-900 bg-blue-100 px-2 py-0.5 rounded-full">
+                        {{ t.checklist|selectattr('fet')|list|length }} / {{ t.checklist|length }} fets
+                    </span>
+                </div>
+                
+                <div class="space-y-1.5">
+                    {% for item in t.checklist %}
+                    <label class="flex items-center space-x-2.5 p-2 rounded-lg border bg-white hover:bg-slate-100 cursor-pointer transition text-xs select-none shadow-sm">
+                        <input type="checkbox" 
+                               {% if item.fet %}checked{% endif %} 
+                               onchange="marcarSubtasca({{ t.csv_index }}, {{ item.item_index }}, this, '{{ operari_sel }}')"
+                               class="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500">
+                        
+                        <span class="font-semibold flex-1 {% if item.fet %}line-through text-slate-400{% else %}text-slate-800{% endif %}">
+                            {{ item.text }}
+                        </span>
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+            {% elif t.Tasques_Detall %}
+                <p class="text-xs text-slate-600 bg-slate-50 p-2.5 rounded-lg border mb-3">
+                    {{ t.Tasques_Detall }}
+                </p>
+            {% endif %}
+
+            <!-- CRONÒMETRE I ACCIONS -->
+            <div class="space-y-2 mb-4">
+                <div class="flex justify-between items-center bg-blue-50/70 p-2 rounded-lg border border-blue-100">
+                    <span class="text-xs font-bold text-blue-900">⏱️ Total Temps Imputat:</span>
+                    <span class="text-sm font-black text-blue-900">{{ t.hores_formatted }}</span>
+                </div>
+
+                {% if t.Estat != 'Finalitzada' %}
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {% if not t.crono_actiu_operari %}
+                            <form action="/iniciar_crono" method="POST">
+                                <input type="hidden" name="csv_index" value="{{ t.csv_index }}">
+                                <input type="hidden" name="operari_sel" value="{{ operari_sel }}">
+                                <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-lg text-xs shadow-md flex items-center justify-center space-x-2">
+                                    <span>▶️ INICIAR CRONÒMETRE</span>
+                                </button>
+                            </form>
+                        {% else %}
+                            <form action="/aturar_crono" method="POST">
+                                <input type="hidden" name="csv_index" value="{{ t.csv_index }}">
+                                <input type="hidden" name="operari_sel" value="{{ operari_sel }}">
+                                <button type="submit" class="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold py-3 rounded-lg text-xs shadow flex items-center justify-center space-x-1">
+                                    <span>⏹️ ATURAR CRONÒMETRE</span>
+                                </button>
+                            </form>
+                        {% endif %}
+
+                        <form action="/confirmar_finalitzacio" method="POST">
+                            <input type="hidden" name="csv_index" value="{{ t.csv_index }}">
+                            <input type="hidden" name="operari_sel" value="{{ operari_sel }}">
+                            <input type="hidden" name="es_finalitzada" value="1">
+                            <button type="submit" onclick="return confirm('Vols marcar aquesta tasca com a completament FINALITZADA?');" class="w-full bg-blue-700 hover:bg-blue-800 text-white font-bold py-3 rounded-lg text-xs shadow flex items-center justify-center space-x-1">
+                                <span>✅ FINALITZAR TASCA</span>
+                            </button>
+                        </form>
+                    </div>
+                {% else %}
+                    <div class="flex justify-between items-center bg-slate-100 p-2.5 rounded-lg border">
+                        <span class="text-xs text-slate-500 font-bold">✅ Tasca Finalitzada</span>
+                        <form action="/reobrir_tasca" method="POST">
+                            <input type="hidden" name="csv_index" value="{{ t.csv_index }}">
+                            <input type="hidden" name="operari_sel" value="{{ operari_sel }}">
+                            <button type="submit" class="text-xs text-blue-700 underline font-bold">🔄 Reobrir Tasca</button>
+                        </form>
+                    </div>
+                {% endif %}
+
+                <!-- DESPLEGABLE: TEMPS MANUAL I HISTÒRIC -->
+                <details class="text-xs bg-slate-50 p-2.5 rounded-lg border mt-2">
+                    <summary class="cursor-pointer font-bold text-slate-700">⏱ Històric de Hores i Temps Manual</summary>
+                    
+                    <form action="/afegir_temps_manual" method="POST" class="mt-2 grid grid-cols-2 gap-2 border-b pb-3">
+                        <input type="hidden" name="csv_index" value="{{ t.csv_index }}">
+                        <input type="hidden" name="operari_sel" value="{{ operari_sel }}">
+                        <div>
+                            <label class="block text-[10px] font-bold">Hora Inici</label>
+                            <input type="time" name="hora_inici" required class="w-full p-1 border rounded text-xs bg-white">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-bold">Hora Fi</label>
+                            <input type="time" name="hora_fi" required class="w-full p-1 border rounded text-xs bg-white">
+                        </div>
+                        <div class="col-span-2">
+                            <button type="submit" class="w-full bg-slate-700 hover:bg-slate-800 text-white font-bold py-1.5 rounded text-xs">
+                                ➕ Afegir Hores Manualment
+                            </button>
+                        </div>
+                    </form>
+
+                    {% if t.historial_hores %}
+                        <ul class="mt-2 space-y-1 text-[11px]">
+                            {% for h in t.historial_hores %}
+                            <li class="flex justify-between items-center bg-white p-1 rounded border">
+                                <span>👷 <strong>{{ h.operari }}</strong> ({{ h.data }}): {{ h.inici }} - {{ h.fi }} (<strong>{{ h.total }}</strong>)</span>
+                                <form action="/eliminar_registre_hora" method="POST" class="inline">
+                                    <input type="hidden" name="csv_index" value="{{ t.csv_index }}">
+                                    <input type="hidden" name="reg_index" value="{{ h.reg_index }}">
+                                    <input type="hidden" name="operari_sel" value="{{ operari_sel }}">
+                                    <button type="submit" class="text-red-500 font-bold px-1" title="Eliminar registre">🗑️</button>
+                                </form>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                    {% endif %}
+                </details>
+            </div>
+
+            <!-- DESPLEGABLE: MATERIAL SUBMINISTRAT / RECANVIS -->
+            <details class="text-xs bg-amber-50/60 p-2.5 rounded-lg border border-amber-200 mb-3">
+                <summary class="cursor-pointer font-bold text-amber-900">📦 Sol·licitar Material / Recanvis</summary>
+                
+                <form action="/registrar_sollicitud_material" method="POST" class="mt-2 space-y-2">
+                    <input type="hidden" name="csv_index" value="{{ t.csv_index }}">
+                    <input type="hidden" name="operari_sel" value="{{ operari_sel }}">
+                    
+                    <textarea name="material_text" rows="2" placeholder="Descriu el recanvi o peces que necessites..." required class="w-full p-2 border rounded text-xs bg-white"></textarea>
+                    
+                    <div class="grid grid-cols-2 gap-2">
+                        <button type="submit" name="via" value="WhatsApp" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 rounded text-xs shadow flex items-center justify-center space-x-1">
+                            <span>💬 Demanar per WhatsApp</span>
+                        </button>
+                        <button type="submit" name="via" value="Email" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 rounded text-xs shadow flex items-center justify-center space-x-1">
+                            <span>✉ Demanar per Email</span>
+                        </button>
+                    </div>
+                </form>
+
+                {% if t.historial_material %}
+                    <div class="mt-3 border-t border-amber-200 pt-2">
+                        <p class="font-bold text-amber-900 text-[11px] mb-1">📋 Recanvis Sol·licitats:</p>
+                        <ul class="space-y-1">
+                            {% for m in t.historial_material %}
+                            <li class="bg-white p-2 rounded border border-amber-200 text-[11px] flex justify-between items-center">
+                                <div>
+                                    <div class="font-semibold text-slate-800">{{ m.detall }}</div>
+                                    <div class="text-slate-500 text-[10px]">🗓️ {{ m.data_hora }} (via {{ m.via }})</div>
+                                </div>
+                                <span class="px-2 py-0.5 rounded text-[10px] font-bold {% if m.estat == 'Arribat' %}bg-emerald-100 text-emerald-800{% elif m.estat == 'Demanat' %}bg-amber-100 text-amber-800{% else %}bg-slate-100 text-slate-700{% endif %}">
+                                    {{ m.estat }}
+                                </span>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                {% endif %}
+            </details>
+
+            <!-- DESPLEGABLE: MATERIAL NO SUBMINISTRAT (AMB LECTOR DE CODI DE BARRES I AUTOCOMPLETAT D'ARTICLES) -->
+            <details class="text-xs bg-red-50/60 p-2.5 rounded-lg border border-red-200 mb-3">
+                <summary class="cursor-pointer font-bold text-red-900 flex items-center justify-between">
+                    <span>⚠ Material No Subministrat / Escanejar</span>
+                    <span class="text-[10px] bg-red-100 text-red-800 px-2 py-0.5 rounded-full font-bold">📷 Lector</span>
+                </summary>
+                
+                <div class="mt-2 space-y-3">
+                    <!-- Contenidor per al visor de la càmera -->
+                    <div id="reader-{{ t.csv_index }}" class="w-full hidden rounded-lg overflow-hidden border border-slate-300 bg-black"></div>
+
+                    <form action="/registrar_material_no_subministrat" method="POST" class="space-y-2">
+                        <input type="hidden" name="csv_index" value="{{ t.csv_index }}">
+                        <input type="hidden" name="operari_sel" value="{{ operari_sel }}">
+                        
+                        <div class="flex space-x-2">
+                            <!-- 🏷️ Input connectat al datalist global d'articles -->
+                            <input type="text" 
+                                   id="input-ref-{{ t.csv_index }}" 
+                                   name="referencia" 
+                                   list="llista_articles_operari"
+                                   placeholder="Escriu Ref., descripció o escaneja..." 
+                                   autocomplete="off"
+                                   required 
+                                   class="w-full p-2 border rounded text-xs bg-white font-bold text-slate-800 focus:ring-2 focus:ring-red-400">
+                            
+                            <button type="button" 
+                                    onclick="obrirEscaner('{{ t.csv_index }}')" 
+                                    class="bg-slate-800 hover:bg-slate-900 text-white font-bold px-3 py-2 rounded text-xs shadow whitespace-nowrap">
+                                📷 Escanejar
+                            </button>
+                        </div>
+
+                        <button type="submit" class="w-full bg-red-700 hover:bg-red-800 text-white font-bold py-2 rounded text-xs shadow">
+                            💾 Imputar Material No Subministrat
+                        </button>
+                    </form>
+
+                    <!-- Històric de referències imputades -->
+                    {% if t.Material_No_Subministrat %}
+                        <div class="border-t border-red-200 pt-2 mt-2">
+                            <p class="font-bold text-red-900 text-[11px] mb-1">📋 Referències Imputades:</p>
+                            <div class="bg-white p-2 rounded border border-red-200 text-[11px] font-mono text-slate-700 whitespace-pre-line">
+                                {{ t.Material_No_Subministrat }}
+                            </div>
+                        </div>
+                    {% endif %}
+                </div>
+            </details>
+
+            <!-- SECCIÓ: FOTOS -->
+            <details class="text-xs bg-slate-50 p-2.5 rounded-lg border mb-3">
+                <summary class="cursor-pointer font-bold text-slate-700">📸 Fotos de l'Embarcació / Treball ({{ t.fotos|length }})</summary>
+                
+                <form action="/pujar_foto" method="POST" enctype="multipart/form-data" class="mt-2 flex items-center space-x-2">
+                    <input type="hidden" name="csv_index" value="{{ t.csv_index }}">
+                    <input type="hidden" name="operari_sel" value="{{ operari_sel }}">
+                    <input type="file" name="foto" accept="image/*" capture="environment" required class="block w-full text-[10px] text-slate-500 file:mr-2 file:py-1.5 file:px-3 file:rounded file:border-0 file:bg-blue-100 file:text-blue-700 font-bold">
+                    <button type="submit" class="bg-blue-700 hover:bg-blue-800 text-white font-bold py-1.5 px-3 rounded text-xs shadow whitespace-nowrap">
+                        📸 Pujar
+                    </button>
+                </form>
+
+                {% if t.fotos %}
+                    <div class="grid grid-cols-3 gap-2 mt-3">
+                        {% for img in t.fotos %}
+                        <a href="{{ img }}" target="_blank" class="block h-20 rounded overflow-hidden border bg-slate-200">
+                            <img src="{{ img }}" class="w-full h-full object-cover">
+                        </a>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            </details>
+
+            <!-- SECCIÓ: NOTES -->
+            <form action="/guardar_notes_operari" method="POST" class="space-y-1">
+                <input type="hidden" name="csv_index" value="{{ t.csv_index }}">
+                <input type="hidden" name="operari_sel" value="{{ operari_sel }}">
+                <label class="block text-[11px] font-bold text-slate-700">📝 Notes Tècniques / Observacions:</label>
+                <textarea name="notes_operari" rows="2" placeholder="Escriu qualsevol detall del treball realitzat..." class="w-full p-2 border rounded text-xs bg-amber-50/40 focus:bg-white">{{ t.Notes_Text }}</textarea>
+                <button type="submit" class="bg-slate-700 hover:bg-slate-800 text-white font-bold py-1.5 px-3 rounded text-[11px] shadow">
+                    💾 Desar Notes
+                </button>
+            </form>
+
+        </div>
+        {% endfor %}
+    {% else %}
+        <div class="bg-white p-8 rounded-xl border text-center text-slate-400 text-xs">
+            🎉 No tens cap tasca pendent assignada en aquest moment.
+        </div>
+    {% endif %}
+</div>
+
+<!-- POPUP MODAL EN ATURAR EL CRONO -->
+{% if confirm_idx is not none %}
+<div class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full border-4 border-amber-400 text-center animate-fade-in">
+        <div class="text-4xl mb-3">❓</div>
+        <h3 class="text-lg font-bold text-slate-800 mb-2">Has donat per finalitzada aquesta tasca?</h3>
+        <p class="text-xs text-slate-600 mb-6">Indica si el treball sobre l'embarcació s'ha acabat o si encara queda pendent.</p>
+        
+        <div class="grid grid-cols-2 gap-3">
+            <form action="/confirmar_finalitzacio" method="POST">
+                <input type="hidden" name="csv_index" value="{{ confirm_idx }}">
+                <input type="hidden" name="operari_sel" value="{{ operari_sel }}">
+                <input type="hidden" name="es_finalitzada" value="1">
+                <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl text-xs shadow-lg">
+                    👍 SÍ, ACABADA
+                </button>
+            </form>
+
+            <form action="/confirmar_finalitzacio" method="POST">
+                <input type="hidden" name="csv_index" value="{{ confirm_idx }}">
+                <input type="hidden" name="operari_sel" value="{{ operari_sel }}">
+                <input type="hidden" name="es_finalitzada" value="0">
+                <button type="submit" class="w-full bg-slate-600 hover:bg-slate-700 text-white font-bold py-3 rounded-xl text-xs shadow-lg">
+                    👎 NO, CONTINUA
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<script>
+let html5QrCodeScanner = null;
+
+function obrirEscaner(csvIdx) {
+    const readerDiv = document.getElementById(`reader-${csvIdx}`);
+    readerDiv.classList.toggle('hidden');
+
+    if (!readerDiv.classList.contains('hidden')) {
+        html5QrCodeScanner = new Html5Qrcode(`reader-${csvIdx}`);
+        
+        const config = { fps: 10, qrbox: { width: 250, height: 150 } };
+
+        html5QrCodeScanner.start(
+            { facingMode: "environment" },
+            config,
+            (decodedText) => {
+                document.getElementById(`input-ref-${csvIdx}`).value = decodedText;
+                html5QrCodeScanner.stop().then(() => {
+                    readerDiv.classList.add('hidden');
+                });
+            },
+            (errorMessage) => {
+                // errors d'escaneig en curs
+            }
+        ).catch(err => {
+            alert("No s'ha pogut accedir a la càmera del dispositiu.");
+            readerDiv.classList.add('hidden');
+        });
+    } else if (html5QrCodeScanner) {
+        html5QrCodeScanner.stop();
+    }
+}
+
+function marcarSubtasca(csvIdx, itemIdx, checkbox, operariSel) {
+    const textSpan = checkbox.nextElementSibling;
+    
+    if (checkbox.checked) {
+        textSpan.classList.add('line-through', 'text-slate-400');
+        textSpan.classList.remove('text-slate-800');
+    } else {
+        textSpan.classList.remove('line-through', 'text-slate-400');
+        textSpan.classList.add('text-slate-800');
+    }
+
+    fetch('/toggle_checklist_item', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+            csv_index: csvIdx, 
+            item_index: itemIdx,
+            operari_sel: operariSel 
+        })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.totes_fetes) {
+            const volFinalitzar = confirm('🎉 Has marcat tots els punts de la checklist!\n\nVols donar aquesta tasca per COMPLETAMENT FINALITZADA?');
+
+            const formData = new FormData();
+            formData.append('csv_index', csvIdx);
+            formData.append('operari_sel', operariSel);
+            formData.append('es_finalitzada', volFinalitzar ? '1' : '0');
+
+            fetch('/confirmar_finalitzacio', {
+                method: 'POST',
+                body: formData
+            }).then(() => location.reload());
+        }
+    });
+}
+</script>
+{% endblock %}

@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="flex justify-between items-center mb-6">
+    <div>
+        <a href="/embarcacions" class="text-xs bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold px-3 py-1.5 rounded-lg transition inline-flex items-center space-x-1 mb-2">
+            <span>⬅️ Tornar a Embarcacions</span>
+        </a>
+        <h2 class="text-2xl font-bold text-slate-800">📸 Galeria de Fotos: <span class="text-blue-900">{{ embarcacio.Nom }}</span></h2>
+        <p class="text-xs text-slate-500 font-medium">Propietari: {{ embarcacio.Client_Propietari }} | {{ embarcacio.Model_Barco }}</p>
+    </div>
+</div>
+
+<!-- PUJAR NOVA FOTO -->
+<div class="bg-white p-4 rounded-xl shadow mb-6 border">
+    <h3 class="font-bold text-sm text-slate-800 mb-3">📤 Pujar Nova Foto</h3>
+    <form action="/pujar_foto_embarcacio" method="POST" enctype="multipart/form-data" class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+        <input type="hidden" name="csv_index" value="{{ embarcacio.csv_index }}">
+        <input type="file" name="foto" accept="image/*" required class="block w-full text-xs text-slate-500 file:mr-2 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-blue-100 file:text-blue-700 file:font-bold hover:file:bg-blue-200">
+        <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg text-xs shadow whitespace-nowrap">
+            📸 Carregar Foto
+        </button>
+    </form>
+</div>
+
+<!-- LLISTAT DE FOTOS -->
+<div class="bg-white rounded-xl shadow border p-4">
+    <h3 class="font-bold text-sm text-slate-800 mb-4">🖼️ Fotos Registrades ({{ fotos|length }})</h3>
+    
+    {% if fotos %}
+    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+        {% for f in fotos %}
+        <div class="group relative bg-slate-50 rounded-lg overflow-hidden border shadow-sm flex flex-col justify-between">
+            <a href="{{ f.url }}" target="_blank" class="block overflow-hidden h-48 bg-slate-200">
+                <img src="{{ f.url }}" class="w-full h-full object-cover group-hover:scale-105 transition duration-300">
+            </a>
+            <div class="p-2 flex justify-between items-center bg-white border-t">
+                <span class="text-[10px] text-slate-500 truncate max-w-[150px]">{{ f.filename }}</span>
+                <form action="/eliminar_foto_embarcacio" method="POST" onsubmit="return confirm('Segur que vols eliminar aquesta foto?');" class="inline">
+                    <input type="hidden" name="csv_index" value="{{ embarcacio.csv_index }}">
+                    <input type="hidden" name="filename" value="{{ f.filename }}">
+                    <button type="submit" class="bg-red-100 hover:bg-red-200 text-red-700 p-1.5 rounded text-xs transition" title="Eliminar foto">
+                        🗑️ Eliminar
+                    </button>
+                </form>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="p-8 text-center text-slate-400 text-xs">
+        📷 No hi ha cap foto pujada per a aquesta embarcació.
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
