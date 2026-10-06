@@ -768,61 +768,64 @@ def recuperar_contrasenya():
 
 @operari_bp.route("/registrar_material_no_subministrat", methods=["POST"])
 def registrar_material_no_subministrat():
-    idx = int(request.form.get("csv_index"))
-    operari_sel = request.form.get("operari_sel")
-    referencia_input = request.form.get("referencia", "").strip()
-    
-    if referencia_input:
-        df = carregar_tasques()
-        df_articles = carregar_articles()
+    try:
+        idx = int(request.form.get("csv_index"))
+        operari_sel = request.form.get("operari_sel", "").strip()
+        referencia_input = request.form.get("referencia", "").strip()
         
-        descripcio_trobada = ""
-        stock_trobat = ""
-        ubicacio_trobada = ""
-        
-        # Netejar la referència si s'ha seleccionat del datalist
-        ref_neta = referencia_input.split(" - ")[0].split(" (")[0].split(" [")[0].strip()
-        
-        if not df_articles.empty:
-            match = df_articles[df_articles["Ref"].str.strip().str.upper() == ref_neta.upper()]
-            if not match.empty:
-                descripcio_trobada = str(match.iloc[0].get("Descripcio", "")).strip()
-                stock_trobat = str(match.iloc[0].get("Stock", "0")).strip()
-                ubicacio_trobada = str(match.iloc[0].get("Ubicacio", "")).strip()
-        
-        # Construcció del format del text a desar
-        elements_text = []
-        if descripcio_trobada:
-            elements_text.append(f"{ref_neta} ({descripcio_trobada})")
-        else:
-            elements_text.append(referencia_input)
-
-        detalls_extra = []
-        if stock_trobat:
-            detalls_extra.append(f"Stock: {stock_trobat}")
-        if ubicacio_trobada:
-            detalls_extra.append(f"Ubicació: {ubicacio_trobada}")
-
-        ref_formatted = elements_text[0]
-        if detalls_extra:
-            ref_formatted += f" [{ ' | '.join(detalls_extra) }]"
-
-        if 0 <= idx < len(df):
-            if "Material_No_Subministrat" not in df.columns:
-                df["Material_No_Subministrat"] = ""
-                
-            data_hora = datetime.now().strftime("%d/%m/%Y - %H:%M")
-            nova_entrada = f"[{data_hora} | Ref: {ref_formatted} | Op: {operari_sel}]"
+        if referencia_input:
+            df = carregar_tasques()
+            df_articles = carregar_articles()
             
-            actual = str(df.at[idx, "Material_No_Subministrat"]).strip()
-            if actual and actual != "nan":
-                df.at[idx, "Material_No_Subministrat"] = f"{actual}\n{nova_entrada}"
+            descripcio_trobada = ""
+            stock_trobat = ""
+            ubicacio_trobada = ""
+            
+            # Netegem per extreure el codi o referència neta si ve del datalist o de l'escàner
+            ref_neta = referencia_input.split(" - ")[0].split(" (")[0].split(" [")[0].strip()
+            
+            if not df_articles.empty and "Ref" in df_articles.columns:
+                # Cerca insensible a majúscules/minúscules
+                match = df_articles[df_articles["Ref"].astype(str).str.strip().str.upper() == ref_neta.upper()]
+                if not match.empty:
+                    descripcio_trobada = str(match.iloc[0].get("Descripcio", "")).strip()
+                    stock_trobat = str(match.iloc[0].get("Stock", "0")).strip()
+                    ubicacio_trobada = str(match.iloc[0].get("Ubicacio", "")).strip()
+            
+            # Construcció del format del text
+            if descripcio_trobada:
+                ref_formatted = f"{ref_neta} ({descripcio_trobada})"
             else:
-                df.at[idx, "Material_No_Subministrat"] = nova_entrada
+                ref_formatted = referencia_input
+
+            detalls_extra = []
+            if stock_trobat:
+                detalls_extra.append(f"Stock: {stock_trobat}")
+            if ubicacio_trobada:
+                detalls_extra.append(f"Ubicació: {ubicacio_trobada}")
+
+            if detalls_extra:
+                ref_formatted += f" [{ ' | '.join(detalls_extra) }]"
+
+            if 0 <= idx < len(df):
+                if "Material_No_Subministrat" not in df.columns:
+                    df["Material_No_Subministrat"] = ""
+                    
+                data_hora = datetime.now().strftime("%d/%m/%Y - %H:%M")
+                nova_entrada = f"[{data_hora} | Ref: {ref_formatted} | Op: {operari_sel}]"
                 
-            guardar_tasques(df)
+                actual = str(df.at[idx, "Material_No_Subministrat"]).strip()
+                if actual and actual.lower() != "nan":
+                    df.at[idx, "Material_No_Subministrat"] = f"{actual}\n{nova_entrada}"
+                else:
+                    df.at[idx, "Material_No_Subministrat"] = nova_entrada
+                    
+                guardar_tasques(df)
+    except Exception as e:
+        print(f"❌ Error en guardar material no subministrat: {e}")
             
     return redirect(url_for("operari.vista_operari", operari=operari_sel))
+
 
 @operari_bp.route("/eliminar_material_no_subministrat", methods=["POST"])
 def eliminar_material_no_subministrat():
