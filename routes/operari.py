@@ -54,20 +54,45 @@ def extreure_historial_material(text_material):
     return registres
 
 def extreure_historial_material_no_subministrat(text_mat_no_sub):
-    if not text_mat_no_sub or pd.isna(text_mat_no_sub):
+    if not text_mat_no_sub or pd.isna(text_mat_no_sub) or str(text_mat_no_sub).strip().lower() == "nan": 
         return []
     registres = []
-    patro = r'\[([\d\/]+ - [\d:]+)\s*\|\s*Ref:\s*([^\|]+)\s*\|\s*Op:\s*([^\]]+)\]'
-    coincidencies = list(re.finditer(patro, str(text_mat_no_sub)))
-    for idx, match in enumerate(coincidencies):
-        data_hora, ref, op = match.groups()
-        registres.append({
-            "mat_idx": idx,
-            "data_hora": data_hora.strip(),
-            "referencia": ref.strip(),
-            "operari": op.strip(),
-            "raw_text": match.group(0)
-        })
+    # Llegim cada línia individualment
+    linies = [l.strip() for l in str(text_mat_no_sub).split("\n") if l.strip()]
+    for idx, l in enumerate(linies):
+        # Format esperat: [data - hora | Ref: text_referencia | Op: nom_operari]
+        if l.startswith("[") and "Ref:" in l:
+            try:
+                # Extreure data i hora
+                data_hora = l.split("|")[0].replace("[", "").strip()
+                # Extreure la referència
+                ref_part = l.split("Ref:")[1].split("| Op:")[0].strip()
+                # Extreure l'operari
+                op_part = l.split("| Op:")[1].replace("]", "").strip() if "| Op:" in l else ""
+                
+                registres.append({
+                    "mat_idx": idx,
+                    "data_hora": data_hora,
+                    "referencia": ref_part,
+                    "operari": op_part,
+                    "raw_text": l
+                })
+            except Exception:
+                registres.append({
+                    "mat_idx": idx,
+                    "data_hora": "",
+                    "referencia": l.replace("[", "").replace("]", ""),
+                    "operari": "",
+                    "raw_text": l
+                })
+        else:
+            registres.append({
+                "mat_idx": idx,
+                "data_hora": "",
+                "referencia": l,
+                "operari": "",
+                "raw_text": l
+            })
     return registres
 
 def extreure_checklist_items(text_detall):
