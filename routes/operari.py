@@ -150,7 +150,7 @@ def vista_operari():
     confirm_idx = request.args.get("confirm_idx", type=int)
     edit_reg_info = {"task_idx": request.args.get("edit_task_idx", type=int), "reg_idx": request.args.get("edit_reg_idx", type=int)}
     
-    # 📦 Carregar la base de dades d'articles per a l'autocompletat
+        # 📦 Carregar la base de dades d'articles per a l'autocompletat (amb Stock i Ubicació)
     df_articles = carregar_articles()
     llista_articles = []
     if not df_articles.empty:
@@ -158,16 +158,27 @@ def vista_operari():
             ref = str(row.get("Ref", "")).strip()
             ref_int = str(row.get("Ref_Interna", "")).strip()
             desc = str(row.get("Descripcio", "")).strip()
+            stock = str(row.get("Stock", "0")).strip()
+            ubicacio = str(row.get("Ubicacio", "")).strip()
             
             if ref:
                 etiqueta = ref
                 if ref_int: etiqueta += f" (INT: {ref_int})"
                 if desc: etiqueta += f" - {desc}"
                 
+                # Afegir Stock i Ubicació visibles per a l'operari
+                detalls_extra = []
+                if stock: detalls_extra.append(f"Stock: {stock}")
+                if ubicacio: detalls_extra.append(f"Ubicació: {ubicacio}")
+                
+                if detalls_extra:
+                    etiqueta += f" [{ ' | '.join(detalls_extra) }]"
+                
                 llista_articles.append({
                     "ref": ref,
                     "etiqueta": etiqueta
                 })
+
 
     df_tasques = carregar_tasques()
     tasques_op = []
