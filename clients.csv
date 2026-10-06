@@ -1,0 +1,12 @@
+ID,Tipus,Nom,Cognoms,Persona_Contacte,NIF,Telèfon,Email,Carrer,Adreça,CP,Poblacio,Embarcació,Port,Amarre,Claus,Comentaris,Correu electrònic de facturació,TIPUS,NIF/CIF,Ciutat,Codi postal,Unnamed: 2,Embarcacio
+CLI-001,Empresa,MARINA ARENYS S.L.,,Carles Soler,B12345678,937900000,info@marina.cat,Port Arenys s/n,Port Arenys s/n,08350,Arenys de Mar,PINCOY CBC,Arenys de Mar,12,Penjada a oficina,Client habitual,,,,,,,
+CLI-002,Particular,Joan,Garcia Perez,,12345678Z,600112233,joan@gmail.com,Carrer Mar 45,Carrer Mar 45,08392,Llavaneres,SHAMAN,El Balís,A-44,Caixa 3,Manteniment anual,,,,,,,
+CLI-003,PARTICULAR,JOSEP,NAVARRO,,38794890P,,jr@3bbcn.com,"Blai i Parera, 8 àtic","Blai i Parera, 8 àtic",08302,MATARÓ,,,,,,,,,,,,
+CLI-004,EMPRESA,VARADOR 2000,,,A08879058,937957090,administracio@varador2000.com,Dic de llevant s/n,Dic de llevant s/n,08350,ARENYS DE MAR,,,,,,,,,,,,
+CLI-005,EMPRESA,BANGLE GROUP S.L.,,,B61960225,,rb@banglegroup.net,"General Mitre, 121 1º-2ª","General Mitre, 121 1º-2ª",08022,BARCELONA,,,,,,,,,,,,
+CLI-006,PARTICULAR,GERMAN,SERÓ FERRER,,37316068V,937923406,,"Apeles Mestres, 14","Apeles Mestres, 14",08330,PREMIA DE MAR,,,,,,,,,,,,
+CLI-007,EMPRESA,"MASNOU NÀUTIC, S.L.",,,B61299277,,seastars@seastarsnautic.com,Port esportiu del Masnou,Port esportiu del Masnou,08320,EL MASNOU,,,,,,,,,,,,
+CLI-008,EMPRESA,"QUER PROFESSIONAL BOATS,",,,B17822651,972387231,admin@quer.net,"Ctra. De Cadaques, S/N","Ctra. De Cadaques, S/N",17822,PORT DE LA SELVA,,,,,,,,,,,,
+CLI-009,EMPRESA,MARENAUTIC 3000 SL,,,B63857593,,,"Antoni Torrent , 34","Antoni Torrent , 34",08350,ARENYS DE MAR,,,,,,,,,,,,
+CLI-010,EMPRESA,"GRUVIPA, S.L.",,,B61276499,,,Marconi,Marconi,08397,PINEDA DE MAR,,,,,,,,,,,,
+CLI-011,PARTICULAR,ANDRES,VIA SOSA,,46115139R,660965306,,Mestre Lesmes Ruiz,Mestre Lesmes Ruiz,08330,PREMIA DE MAR,,,,,,,,,,,,

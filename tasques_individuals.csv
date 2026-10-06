@@ -1,0 +1,30 @@
+Embarcació,Operari,Titol_Tasca,Tasques_Detall,Hores_Imputades,Estat,Comentaris_Operari,Inici_Crono,Notes_Text,Material_Demanat,Prioritat,Data_Inici,Data_Fi,Data_Creacio,Pressupost_Enviat,Material_No_Subministrat
+PINCOY CBC,BRETT,MANTENIMENT,"[x] Per anar a buscar embarcació i portar-la fins a la grua.
+[x] Treure embarcació de l'aigua. Carxejar fondos.
+[x] Desembornar i deixar preparada per hivernar.
+[x] Desplaçament de l'embarcació amb remolc fins a la nau.",0h 00m,Arxivada,[BRETT | Crono 29/09/26: 16:59 a 16:59 (0h 00m)],,,,Normal,2026-09-29,2026-10-02,,0,
+REAL LIVE,"DALMAU, ERIC",TAPA BALANCINS,"Déplacement à bord du navire afin d’inspecter et de localiser une légère fuite d’huile moteur. L’origine de la fuite est identifiée au niveau du couvre-culasse et de sa zone d’étanchéité.
+Dépose des composants nécessaires afin d’accéder au carter de distribution et à la chaîne de distribution. Le nombre d’heures de main-d’œuvre comprend les travaux supplémentaires nécessaires pour accéder à la chaîne de distribution et à la zone concernée.
+Dépose du couvre-culasse, nettoyage et préparation des surfaces d’étanchéité, puis application d’un produit d’étanchéité approprié afin de rétablir l’étanchéité.
+Repose du couvre-culasse et remontage de l’ensemble des composants précédemment déposés.
+Remontage final et contrôle afin de vérifier que la zone est correctement étanchée et qu’aucune fuite d’huile n’est présente.",0,Pendent,,,,,Normal,2026-10-05,2026-10-05,2026-10-05,,
+AIROS,MARC,XEC MOTOR,"Per anar a l'embarcació per examinar motor propulsor de l'embarcació.
+Desmuntar colzde d'escape està el límit i s'aconsella ser substituit.
+Substituir tub d'escape del colze.
+Obrir intercanviador de calor per fer una neteja, però un cop obert s'observa que el cos està ja molt desgastat. Es convenient substituir-lo.
+Es fa prova de compressions. Aquestes surten correctes.
+Es treuen els injectors i es porten al taller per ser comprovats cada un d'ells. Estan correctes no tenen fugues. Es canvien les juntes.
+Canviar escalfadors d'arranque que aquests ja donaven problemes.
+Muntar nou intercambiador de calor.
+Muntar nou colze escapament.
+Canviar tub escapament.
+Fer neteja del circuit intern aigua dolça amb recirculació.
+Posar nou anticongelant.
+Proves.",0,Pendent,,,,,Normal,2026-10-06,2026-10-06,2026-10-05,,"[05/10/2026 - 16:26 | Ref: MTN-1111 | Op: MARC]
+[05/10/2026 - 16:28 | Ref: 1111 (PROVA) | Op: MARC]"
+AIROS,LEO,SHUNT BATERIES,,0,Pendent,,,,,Normal,2026-10-08,2026-10-08,2026-10-05,,
+AQUA,DALMAU,TREURE MOTOR,,0,Pendent,,,,,Normal,2026-10-05,2026-10-05,2026-10-05,,
+TUETI,MARC,VARIS,"Comprovar aforador dipòsit gasoil.
+Indicador Trim.
+Mando accelerador",0,Pendent,,,,,Normal,2026-10-05,2026-10-05,2026-10-05,,[05/10/2026 - 16:25 | Ref: 1111 | Op: MARC]
+ALUNGA,SOLA,CONNEXIONAR CARGUES,,0,Pendent,,,,,Normal,2026-10-05,2026-10-09,2026-10-05,,

@@ -1,0 +1,12 @@
+Nom,Client_Propietari,Model_Barco,Matricula,Motoritzacio,Port,Amarre,Claus,Comentaris,Marca_Motor,Model_Motor,Hores_Motor,Data_Hores,Historial_Hores,Enllacs,Num_Motors,Num_Serie_Motors
+PINCOY CBC,MARINA ARENYS S.L.,Bavaria 37,7ª-BA-2-100-20,Volvo D2-40,Arenys de Mar,12,Oficina,,Volvo Penta,D3-150,"650, 660",2026-09-15,"[14/09/2026: 550 h] | [14/09/2026: 550, 560 h] | [15/09/2026: 650, 660 h]",[FAC002456_JORDI_SANTACANA_PEREZ.pdf|/uploads/PINCOY_CBC/DOC_20260828_162043_FAC002456_JORDI_SANTACANA_PEREZ.pdf],2,"A252513, A252514"
+SHAMAN,Joan Garcia Perez,Beneteau Oceanis 41,7ª-MA-1-45-18,Yanmar 4JH45,El Balís,A-44,Caixa 3,,Cummins,QSB 6.7,"620, 620",2026-09-05,"[01/09/2026: 600, 600 h] | [05/09/2026: 620, 620 h]",,2,"5544554455, 5544554456"
+PROVA,MARINA ARENYS S.L.,VELER,,,,,,,Volvo Penta,4.3GXI,150,2026-08-30,[28/08/2026: 100 h] | [30/08/2026: 150 h],,,
+PROVA 1,MARINA ARENYS S.L.,VELER,,,ARENYS DE MAR,670,,,Volvo Penta,D2-60,"200, 201",2026-09-30,"[31/08/2026: 155, 156 h] | [30/09/2026: 200, 201 h]",,2,"A121555, A1215556"
+COSMONAUTA,SAILING IBERICA,,,,PALAMOS,,BARCO,,Volvo Penta,D6-310,", ",2026-09-30,,,2,", "
+REAL LIVE,"GRUVIPA, S.L.",,,,,,,,,,,2026-10-05,,,1,
+TUETI,ANDRES,,,,,,,,,,,2026-10-05,,,1,
+AIROS,BANGLE GROUP S.L.,,,,,,,,,,,2026-10-05,,,1,
+AQUA,ANDRES,,,,,,,,,,,2026-10-05,,,1,
+AIROS,BANGLE GROUP S.L.,,,,,,,,,,,2026-10-05,,,1,
+ALUNGA,ANDRES,,,,,,,,,,,2026-10-05,,,1,
