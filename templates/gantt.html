@@ -43,9 +43,9 @@
         </div>
     </div>
 
-    <!-- CONTENIDOR DEL DIAGRAMA GANTT AMB SCROLL HORITZONTAL ACTIU -->
-    <div class="bg-white p-4 rounded-xl shadow border overflow-x-auto w-full cursor-grab select-none" id="gantt-container">
-        <svg id="gantt"></svg>
+    <!-- UN SOL CONTENIDOR AMB SCROLL HORITZONTAL UNIFICAT -->
+    <div class="bg-white p-4 rounded-xl shadow border overflow-x-auto w-full cursor-grab select-none min-h-[400px]" id="gantt-container">
+        <svg id="gantt" class="overflow-visible block"></svg>
     </div>
 
 </div>
@@ -97,13 +97,12 @@
 <style id="gantt-dynamic-styles">
     #gantt-container {
         overflow-x: auto !important;
-        white-space: nowrap !important;
+        overflow-y: hidden !important;
     }
 
     #gantt {
         display: block !important;
-        width: auto !important;
-        min-width: max-content !important;
+        width: max-content !important;
     }
 
     .gantt .grid-header {
@@ -200,7 +199,6 @@
             return a.localeCompare(b);
         });
 
-        // Poblar el <select> desplegable del Pop-Up con TODOS los operarios
         llistaOperaris.forEach(op => {
             const optPop = document.createElement("option");
             optPop.value = op;
@@ -293,8 +291,8 @@
         });
 
         document.getElementById("gantt-dynamic-styles").innerHTML = `
-            #gantt-container { overflow-x: auto !important; white-space: nowrap !important; }
-            #gantt { display: block !important; width: auto !important; min-width: max-content !important; }
+            #gantt-container { overflow-x: auto !important; overflow-y: hidden !important; }
+            #gantt { display: block !important; width: max-content !important; }
             .gantt .grid-header { stroke: #64748b !important; stroke-width: 1.5px !important; fill: #ffffff !important; }
             .gantt .grid-row { stroke: #e2e8f0 !important; stroke-width: 1px !important; fill: transparent !important; }
             .gantt .tick { stroke: #cbd5e1 !important; stroke-width: 1.5px !important; }
@@ -399,12 +397,10 @@
 
         document.getElementById("modalNomTasca").innerText = taskObj.name;
         
-        // Seleccionar en el desplegable el operario actual de la tarea
         const selectOp = document.getElementById("modalSelectOperari");
         if (selectOp) {
             selectOp.value = opActual;
             if (!selectOp.value) {
-                // Si la tarea tiene múltiples operarios no exactos, selecciona por defecto el primero
                 selectOp.value = opActual.split(",")[0].trim();
             }
         }
