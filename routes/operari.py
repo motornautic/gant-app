@@ -797,6 +797,7 @@ def registrar_material_no_subministrat():
         idx = int(request.form.get("csv_index"))
         operari_sel = request.form.get("operari_sel", "").strip()
         referencia_input = request.form.get("referencia", "").strip()
+        quantitat = request.form.get("quantitat", "1").strip()
         
         if referencia_input:
             df = carregar_tasques()
@@ -806,22 +807,23 @@ def registrar_material_no_subministrat():
             stock_trobat = ""
             ubicacio_trobada = ""
             
-            # Netegem per extreure el codi o referència neta si ve del datalist o de l'escàner
+            # Netegem la referència si ve del datalist o de l'escàner
             ref_neta = referencia_input.split(" - ")[0].split(" (")[0].split(" [")[0].strip()
             
             if not df_articles.empty and "Ref" in df_articles.columns:
-                # Cerca insensible a majúscules/minúscules
                 match = df_articles[df_articles["Ref"].astype(str).str.strip().str.upper() == ref_neta.upper()]
                 if not match.empty:
                     descripcio_trobada = str(match.iloc[0].get("Descripcio", "")).strip()
                     stock_trobat = str(match.iloc[0].get("Stock", "0")).strip()
                     ubicacio_trobada = str(match.iloc[0].get("Ubicacio", "")).strip()
             
-            # Construcció del format del text
+            # Construcció del format del text amb quantitat/unitats
+            prefix_quantitat = f"[{quantitat} ut.] " if quantitat else ""
+
             if descripcio_trobada:
-                ref_formatted = f"{ref_neta} ({descripcio_trobada})"
+                ref_formatted = f"{prefix_quantitat}{ref_neta} ({descripcio_trobada})"
             else:
-                ref_formatted = referencia_input
+                ref_formatted = f"{prefix_quantitat}{referencia_input}"
 
             detalls_extra = []
             if stock_trobat:
