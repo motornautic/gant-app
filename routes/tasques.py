@@ -1,6 +1,7 @@
 from flask import Blueprint, render_template, request, redirect, url_for, current_app
 import pandas as pd
 import os, re
+import json
 from werkzeug.utils import secure_filename
 from db import carregar_tasques, guardar_tasques, carregar_operaris
 from routes.embarcacions import carregar_embarcacions
@@ -34,6 +35,21 @@ def vista_tasques():
             item["historial_material"] = extreure_historial_material(item.get("Material_Demanat", ""))
             item["historial_mat_no_subministrat"] = extreure_historial_material_no_subministrat(item.get("Material_No_Subministrat", ""))
 
+            # ⏱️ EXTRACTOR DE CRONÒMETRES ACTIUS PER A L'ADMINISTRADOR
+            crono_json = str(row.get("Inici_Crono", "")).strip()
+            operaris_cronos_actius = []
+
+            if crono_json.startswith("{"):
+                try:
+                    crono_dict = json.loads(crono_json)
+                    operaris_cronos_actius = [op for op, inici in crono_dict.items() if inici]
+                except Exception:
+                    pass
+            elif crono_json and crono_json.lower() != "nan":
+                operaris_cronos_actius = ["General"]
+
+            item["operaris_cronos_actius"] = operaris_cronos_actius
+
             emb_folder = secure_filename(item.get("Embarcació", "GENERAL"))
             folder_path = os.path.join(current_app.config['UPLOAD_FOLDER'], emb_folder)
             fotos = []
@@ -50,7 +66,7 @@ def vista_tasques():
                 tasca_edit = item
 
     embarcacions_llista = sorted(df_emb["Nom"].dropna().unique().tolist()) if not df_emb.empty and "Nom" in df_emb.columns else []
-    
+
     return render_template(
         "tasques.html", 
         tasques=tasques_llista, 
