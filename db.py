@@ -2,7 +2,6 @@ import os
 import pandas as pd
 from sqlalchemy import create_engine
 
-# Detectar la connexió de PostgreSQL a Railway o utilitzar fitxers CSV en local
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
 if DATABASE_URL:
@@ -10,24 +9,25 @@ if DATABASE_URL:
         DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql+psycopg2://", 1)
     elif DATABASE_URL.startswith("postgresql://") and not DATABASE_URL.startswith("postgresql+psycopg2://"):
         DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+psycopg2://", 1)
-        
+
 def get_engine():
     if DATABASE_URL:
-        return create_engine(DATABASE_URL)
+        # pool_pre_ping manté la connexió viva i evita desconnexions
+        return create_engine(DATABASE_URL, pool_pre_ping=True)
     return None
 
 def carregar_taula(nom_taula, fitxer_csv, columnes_default):
     engine = get_engine()
     if engine:
         try:
-            df = pd.read_sql_table(nom_taula, con=engine, dtype=str).fillna("")
-            for col in columnes_default:
-                if col not in df.columns:
-                    df[col] = ""
-            return df
-        except Exception:
-            # Si la taula encara no existeix a PostgreSQL, carrega el CSV local
-            pass
+            with engine.connect() as conn:
+                df = pd.read_sql_table(nom_taula, con=conn, dtype=str).fillna("")
+                for col in columnes_default:
+                    if col not in df.columns:
+                        df[col] = ""
+                return df
+        except Exception as e:
+            print(f"⚠️ No s'ha pogut llegir la taula '{nom_taula}' de Postgres (carregant CSV): {e}")
     
     # Mode Local / Fallback CSV
     path = os.path.join(os.getcwd(), fitxer_csv)
@@ -46,13 +46,20 @@ def guardar_taula(df, nom_taula, fitxer_csv):
     engine = get_engine()
     if engine:
         try:
-            df.to_sql(nom_taula, con=engine, if_exists="replace", index=False)
+            # Utilitzar engine.begin() per forçar el COMMIT automàtic a PostgreSQL
+            with engine.begin() as conn:
+                df.to_sql(nom_taula, con=conn, if_exists="replace", index=False)
+            print(f"✅ Taula '{nom_taula}' guardada correctament a PostgreSQL.")
         except Exception as e:
-            print(f"Error guardant a Postgres: {e}")
+            print(f"❌ Error guardant la taula '{nom_taula}' a Postgres: {e}")
 
-    # Guardar sempre una còpia en CSV per seguretat
-    path = os.path.join(os.getcwd(), fitxer_csv)
-    df.to_csv(path, index=False)
+    # Còpia local de seguretat en CSV
+    try:
+        path = os.path.join(os.getcwd(), fitxer_csv)
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        df.to_csv(path, index=False)
+    except Exception as e:
+        print(f"Error guardant CSV local: {e}")
 
 # --- FUNCIONS ESPECÍFIQUES DEL TEU PROJECTE ---
 
