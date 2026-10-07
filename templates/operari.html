@@ -344,7 +344,7 @@
                 {% endif %}
             </details>
 
-                        <!-- DESPLEGABLE: MATERIAL NO SUBMINISTRAT (AMB LECTOR DE CODI DE BARRES I AUTOCOMPLETAT D'ARTICLES AMB STOCK I UBICACIÓ) -->
+                       <!-- DESPLEGABLE: MATERIAL NO SUBMINISTRAT (AMB QUANTITAT, LECTOR I AUTOCOMPLETAT) -->
             <details class="text-xs bg-red-50/60 p-2.5 rounded-lg border border-red-200 mb-3">
                 <summary class="cursor-pointer font-bold text-red-900 flex items-center justify-between">
                     <span>⚠ Material No Subministrat / Escanejar</span>
@@ -359,24 +359,41 @@
                         <input type="hidden" name="csv_index" value="{{ t.csv_index }}">
                         <input type="hidden" name="operari_sel" value="{{ operari_sel }}">
                         
-                        <div class="flex space-x-2">
-                            <input type="text" 
-                                   id="input-ref-{{ t.csv_index }}" 
-                                   name="referencia" 
-                                   list="llista_articles_operari"
-                                   placeholder="Cerca Ref, descripció, stock o ubicació..." 
-                                   autocomplete="off"
-                                   required 
-                                   class="w-full p-2 border rounded text-xs bg-white font-bold text-slate-800 focus:ring-2 focus:ring-red-400">
-                            
-                            <button type="button" 
-                                    onclick="obrirEscaner('{{ t.csv_index }}')" 
-                                    class="bg-slate-800 hover:bg-slate-900 text-white font-bold px-3 py-2 rounded text-xs shadow whitespace-nowrap">
-                                📷 Escanejar
-                            </button>
+                        <div class="grid grid-cols-12 gap-2">
+                            <!-- 🔢 INPUT QUANTITAT / UNITATS -->
+                            <div class="col-span-3 sm:col-span-2">
+                                <label class="block text-[10px] font-bold text-red-900 mb-0.5">Unitats:</label>
+                                <input type="number" 
+                                       name="quantitat" 
+                                       value="1" 
+                                       min="1" 
+                                       required 
+                                       class="w-full p-2 border rounded text-xs bg-white font-bold text-center text-slate-800 focus:ring-2 focus:ring-red-400">
+                            </div>
+
+                            <!-- 🏷️ INPUT REFERÈNCIA / CERCADOR -->
+                            <div class="col-span-9 sm:col-span-10">
+                                <label class="block text-[10px] font-bold text-red-900 mb-0.5">Article / Referència:</label>
+                                <div class="flex space-x-2">
+                                    <input type="text" 
+                                           id="input-ref-{{ t.csv_index }}" 
+                                           name="referencia" 
+                                           list="llista_articles_operari"
+                                           placeholder="Cerca Ref, descripció, stock o ubicació..." 
+                                           autocomplete="off"
+                                           required 
+                                           class="w-full p-2 border rounded text-xs bg-white font-bold text-slate-800 focus:ring-2 focus:ring-red-400">
+                                    
+                                    <button type="button" 
+                                            onclick="obrirEscaner('{{ t.csv_index }}')" 
+                                            class="bg-slate-800 hover:bg-slate-900 text-white font-bold px-3 py-2 rounded text-xs shadow whitespace-nowrap">
+                                        📷 Escanejar
+                                    </button>
+                                </div>
+                            </div>
                         </div>
 
-                        <p class="text-[10px] text-slate-500 italic">💡 L'autocompletat mostra l'Stock i la Ubicació al magatzem.</p>
+                        <p class="text-[10px] text-slate-500 italic">💡 Indica la quantitat i cerca l'article per veure el seu Stock i Ubicació al magatzem.</p>
 
                         <button type="submit" class="w-full bg-red-700 hover:bg-red-800 text-white font-bold py-2 rounded text-xs shadow">
                             💾 Imputar Material No Subministrat
@@ -415,7 +432,7 @@
                         </div>
                     {% endif %}
                 </div>
-            </details>
+            </details> 
 
 
             <!-- SECCIÓ: FOTOS -->
