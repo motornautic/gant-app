@@ -69,7 +69,14 @@ def guardar_articles(df):
 
 def carregar_operaris():
     df = carregar_taula("operaris", "operaris.csv", ["Nom", "Cognoms", "Telefon", "Email", "Password", "Reset_Code", "Reset_Expiry"])
+    # Si s'ha hagut de carregar des del CSV i hi ha dades, les guardem a Postgres perquè es creï la taula
+    if not df.empty and get_engine():
+        try:
+            guardar_taula(df, "operaris", "operaris.csv")
+        except Exception:
+            pass
     return df["Nom"].dropna().unique().tolist() if not df.empty and "Nom" in df.columns else []
+
 
 def carregar_tasques():
     columnes_tasques = [
