@@ -20,6 +20,7 @@ def carregar_taula(nom_taula, fitxer_csv, columnes_default):
     if engine:
         try:
             with engine.connect() as conn:
+                # read_sql_table no accepta dtype=str, ho fem desprès amb .astype(str)
                 df = pd.read_sql_table(nom_taula, con=conn).fillna("").astype(str)
                 for col in columnes_default:
                     if col not in df.columns:
@@ -58,7 +59,7 @@ def guardar_taula(df, nom_taula, fitxer_csv):
     except Exception as e:
         print(f"Error guardant CSV local: {e}")
 
-# --- FUNCIONS ESPECÍFIQUES (NOMÉS LECTURA I ESCRIPTURA DIRECTA) ---
+# --- FUNCIONS ESPECÍFIQUES ---
 
 def carregar_articles():
     return carregar_taula("articles", "data/articles.csv", ["Ref", "Ref_Interna", "Descripcio", "Stock", "Ubicacio"])
@@ -68,7 +69,14 @@ def guardar_articles(df):
 
 def carregar_operaris():
     df = carregar_taula("operaris", "operaris.csv", ["Nom", "Cognoms", "Telefon", "Email", "Password", "Reset_Code", "Reset_Expiry"])
+    # Si s'ha hagut de carregar des del CSV i hi ha dades, les guardem a Postgres perquè es creï la taula
+    if not df.empty and get_engine():
+        try:
+            guardar_taula(df, "operaris", "operaris.csv")
+        except Exception:
+            pass
     return df["Nom"].dropna().unique().tolist() if not df.empty and "Nom" in df.columns else []
+
 
 def carregar_tasques():
     columnes_tasques = [
@@ -98,4 +106,5 @@ def carregar_embarcacions():
 
 def guardar_embarcacions(df):
     guardar_taula(df, "embarcacions", "embarcacions.csv")
+
 
