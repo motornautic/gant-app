@@ -344,7 +344,7 @@
                 {% endif %}
             </details>
 
-                       <!-- DESPLEGABLE: MATERIAL NO SUBMINISTRAT (AMB QUANTITAT, LECTOR I AUTOCOMPLETAT) -->
+            <!-- DESPLEGABLE: MATERIAL NO SUBMINISTRAT (AMB QUANTITAT, LECTOR I AUTOCOMPLETAT PROTEGIT) -->
             <details class="text-xs bg-red-50/60 p-2.5 rounded-lg border border-red-200 mb-3">
                 <summary class="cursor-pointer font-bold text-red-900 flex items-center justify-between">
                     <span>⚠ Material No Subministrat / Escanejar</span>
@@ -355,7 +355,7 @@
                     <!-- Contenidor per al visor de la càmera -->
                     <div id="reader-{{ t.csv_index }}" class="w-full hidden rounded-lg overflow-hidden border border-slate-300 bg-black"></div>
 
-                    <form action="/registrar_material_no_subministrat" method="POST" class="space-y-2">
+                    <form action="/registrar_material_no_subministrat" method="POST" id="form-mat-{{ t.csv_index }}" class="space-y-2">
                         <input type="hidden" name="csv_index" value="{{ t.csv_index }}">
                         <input type="hidden" name="operari_sel" value="{{ operari_sel }}">
                         
@@ -368,6 +368,7 @@
                                        value="1" 
                                        min="1" 
                                        required 
+                                       onkeydown="if(event.key === 'Enter'){ event.preventDefault(); }"
                                        class="w-full p-2 border rounded text-xs bg-white font-bold text-center text-slate-800 focus:ring-2 focus:ring-red-400">
                             </div>
 
@@ -382,6 +383,7 @@
                                            placeholder="Cerca Ref, descripció, stock o ubicació..." 
                                            autocomplete="off"
                                            required 
+                                           onkeydown="if(event.key === 'Enter'){ event.preventDefault(); document.getElementById('btn-submit-mat-{{ t.csv_index }}').click(); }"
                                            class="w-full p-2 border rounded text-xs bg-white font-bold text-slate-800 focus:ring-2 focus:ring-red-400">
                                     
                                     <button type="button" 
@@ -395,7 +397,7 @@
 
                         <p class="text-[10px] text-slate-500 italic">💡 Indica la quantitat i cerca l'article per veure el seu Stock i Ubicació al magatzem.</p>
 
-                        <button type="submit" class="w-full bg-red-700 hover:bg-red-800 text-white font-bold py-2 rounded text-xs shadow">
+                        <button type="submit" id="btn-submit-mat-{{ t.csv_index }}" class="w-full bg-red-700 hover:bg-red-800 text-white font-bold py-2 rounded text-xs shadow">
                             💾 Imputar Material No Subministrat
                         </button>
                     </form>
@@ -433,7 +435,6 @@
                     {% endif %}
                 </div>
             </details> 
-
 
             <!-- SECCIÓ: FOTOS -->
             <details class="text-xs bg-slate-50 p-2.5 rounded-lg border mb-3">
@@ -582,3 +583,4 @@ function marcarSubtasca(csvIdx, itemIdx, checkbox, operariSel) {
 }
 </script>
 {% endblock %}
+
