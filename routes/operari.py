@@ -175,7 +175,7 @@ def vista_operari():
     confirm_idx = request.args.get("confirm_idx", type=int)
     edit_reg_info = {"task_idx": request.args.get("edit_task_idx", type=int), "reg_idx": request.args.get("edit_reg_idx", type=int)}
     
-        # 📦 Carregar la base de dades d'articles per a l'autocompletat (amb Stock i Ubicació)
+    # 📦 Carregar la base de dades d'articles per a l'autocompletat (amb Stock i Ubicació)
     df_articles = carregar_articles()
     llista_articles = []
     if not df_articles.empty:
@@ -203,7 +203,6 @@ def vista_operari():
                     "ref": ref,
                     "etiqueta": etiqueta
                 })
-
 
     df_tasques = carregar_tasques()
     tasques_op = []
@@ -251,7 +250,6 @@ def vista_operari():
                 tasques_op.append(item)
 
     return render_template("operari.html", operaris=operaris, operari_sel=operari_sel, perfil=perfil_data, tasques=tasques_op, confirm_idx=confirm_idx, edit_reg_info=edit_reg_info, articles=llista_articles, es_admin=es_admin)
-
 
 @operari_bp.route("/login_operari", methods=["POST"])
 def login_operari():
@@ -793,13 +791,16 @@ def recuperar_contrasenya():
 
 @operari_bp.route("/registrar_material_no_subministrat", methods=["POST"])
 def registrar_material_no_subministrat():
+    # Carregar operari actiu des del formulari o de la sessió de seguretat
+    operari_sel = request.form.get("operari_sel", "").strip() or session.get("operari_autenticat", "").strip() or request.cookies.get("operari_saved", "").strip()
+    
     try:
-        idx = int(request.form.get("csv_index"))
-        operari_sel = request.form.get("operari_sel", "").strip()
+        idx_raw = request.form.get("csv_index")
         referencia_input = request.form.get("referencia", "").strip()
         quantitat = request.form.get("quantitat", "1").strip()
         
-        if referencia_input:
+        if idx_raw is not None and referencia_input:
+            idx = int(idx_raw)
             df = carregar_tasques()
             df_articles = carregar_articles()
             
@@ -851,14 +852,16 @@ def registrar_material_no_subministrat():
     except Exception as e:
         print(f"❌ Error en guardar material no subministrat: {e}")
             
-    return redirect(url_for("operari.vista_operari", operari=operari_sel))
-
+    if operari_sel:
+        return redirect(url_for("operari.vista_operari", operari=operari_sel))
+    else:
+        return redirect(request.referrer or url_for("operari.vista_operari"))
 
 @operari_bp.route("/eliminar_material_no_subministrat", methods=["POST"])
 def eliminar_material_no_subministrat():
     idx = int(request.form.get("csv_index"))
     mat_idx = int(request.form.get("mat_idx"))
-    operari_sel = request.form.get("operari_sel")
+    operari_sel = request.form.get("operari_sel", "").strip() or session.get("operari_autenticat", "").strip()
     
     df = carregar_tasques()
     if 0 <= idx < len(df):
@@ -874,6 +877,10 @@ def eliminar_material_no_subministrat():
             df.at[idx, "Material_No_Subministrat"] = "\n".join(linies_filtrades)
             guardar_tasques(df)
             
-    return redirect(url_for("operari.vista_operari", operari=operari_sel))
+    if operari_sel:
+        return redirect(url_for("operari.vista_operari", operari=operari_sel))
+    else:
+        return redirect(request.referrer or url_for("operari.vista_operari"))
+
 
 
