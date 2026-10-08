@@ -58,27 +58,16 @@ def guardar_taula(df, nom_taula, fitxer_csv):
     except Exception as e:
         print(f"Error guardant CSV local: {e}")
 
-# --- FUNCIONS ESPECÍFIQUES AMB AUTO-MIGRACIÓ A POSTGRES ---
+# --- FUNCIONS ESPECÍFIQUES (NOMÉS LECTURA I ESCRIPTURA DIRECTA) ---
 
 def carregar_articles():
-    df = carregar_taula("articles", "data/articles.csv", ["Ref", "Ref_Interna", "Descripcio", "Stock", "Ubicacio"])
-    if not df.empty and get_engine():
-        try:
-            guardar_taula(df, "articles", "data/articles.csv")
-        except Exception:
-            pass
-    return df
+    return carregar_taula("articles", "data/articles.csv", ["Ref", "Ref_Interna", "Descripcio", "Stock", "Ubicacio"])
 
 def guardar_articles(df):
     guardar_taula(df, "articles", "data/articles.csv")
 
 def carregar_operaris():
     df = carregar_taula("operaris", "operaris.csv", ["Nom", "Cognoms", "Telefon", "Email", "Password", "Reset_Code", "Reset_Expiry"])
-    if not df.empty and get_engine():
-        try:
-            guardar_taula(df, "operaris", "operaris.csv")
-        except Exception:
-            pass
     return df["Nom"].dropna().unique().tolist() if not df.empty and "Nom" in df.columns else []
 
 def carregar_tasques():
@@ -87,49 +76,25 @@ def carregar_tasques():
         "Prioritat", "Tasques_Detall", "Comentaris_Operari", "Hores_Imputades", 
         "Inici_Crono", "Material_Demanat", "Material_No_Subministrat", "Notes_Text"
     ]
-    df = carregar_taula("tasques", "tasques.csv", columnes_tasques)
-    if not df.empty and get_engine():
-        try:
-            guardar_taula(df, "tasques", "tasques.csv")
-        except Exception:
-            pass
-    return df
+    return carregar_taula("tasques", "tasques.csv", columnes_tasques)
 
 def guardar_tasques(df):
     guardar_taula(df, "tasques", "tasques.csv")
 
 def carregar_admins():
-    df = carregar_taula("admins", "admins.csv", ["Usuari", "Password"])
-    if not df.empty and get_engine():
-        try:
-            guardar_taula(df, "admins", "admins.csv")
-        except Exception:
-            pass
-    return df
+    return carregar_taula("admins", "admins.csv", ["Usuari", "Password"])
 
 def guardar_admins(df):
     guardar_taula(df, "admins", "admins.csv")
 
 def carregar_clients():
-    df = carregar_taula("clients", "clients.csv", ["Nom", "Telefon", "Email"])
-    if not df.empty and get_engine():
-        try:
-            guardar_taula(df, "clients", "clients.csv")
-        except Exception:
-            pass
-    return df
+    return carregar_taula("clients", "clients.csv", ["Nom", "Telefon", "Email"])
 
 def guardar_clients(df):
     guardar_taula(df, "clients", "clients.csv")
 
 def carregar_embarcacions():
-    df = carregar_taula("embarcacions", "embarcacions.csv", ["Nom", "Model", "Client"])
-    if not df.empty and get_engine():
-        try:
-            guardar_taula(df, "embarcacions", "embarcacions.csv")
-        except Exception:
-            pass
-    return df
+    return carregar_taula("embarcacions", "embarcacions.csv", ["Nom", "Model", "Client"])
 
 def guardar_embarcacions(df):
     guardar_taula(df, "embarcacions", "embarcacions.csv")
