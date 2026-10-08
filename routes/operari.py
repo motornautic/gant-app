@@ -57,17 +57,12 @@ def extreure_historial_material_no_subministrat(text_mat_no_sub):
     if not text_mat_no_sub or pd.isna(text_mat_no_sub) or str(text_mat_no_sub).strip().lower() == "nan": 
         return []
     registres = []
-    # Llegim cada línia individualment
     linies = [l.strip() for l in str(text_mat_no_sub).split("\n") if l.strip()]
     for idx, l in enumerate(linies):
-        # Format esperat: [data - hora | Ref: text_referencia | Op: nom_operari]
         if l.startswith("[") and "Ref:" in l:
             try:
-                # Extreure data i hora
                 data_hora = l.split("|")[0].replace("[", "").strip()
-                # Extreure la referència
                 ref_part = l.split("Ref:")[1].split("| Op:")[0].strip()
-                # Extreure l'operari
                 op_part = l.split("| Op:")[1].replace("]", "").strip() if "| Op:" in l else ""
                 
                 registres.append({
@@ -153,29 +148,27 @@ def carregar_df_operaris():
 @operari_bp.route("/operari", methods=["GET"])
 def vista_operari():
     operaris = carregar_operaris()
-    
-    # Check si l'usuari actual és un administrador autenticat
     es_admin = bool(session.get("admin_autenticat"))
     
-    operari_autenticat = request.cookies.get("operari_saved") or session.get("operari_autenticat")
+    # 🔒 RECUPERACIÓ DE SESSIÓ I COOKIE MULTI-CAPA
+    operari_autenticat = session.get("operari_autenticat") or request.cookies.get("operari_saved")
     operari_req = request.args.get("operari")
     
-    # Si és administrador, pot veure qualsevol operari directament sense demanar login
     if es_admin:
-        operari_sel = operari_req or (operaris[0] if operaris else None)
+        operari_sel = operari_req or operari_autenticat or (operaris[0] if operaris else None)
     else:
-        if operari_req and operari_autenticat and operari_req.upper() != operari_autenticat.upper():
-            operari_autenticat = None
-            
         operari_sel = operari_req or operari_autenticat
         
-        if not operari_autenticat or not operari_sel:
+        # Si hem trobat un operari a la cookie/sessió, ho consolidem a la sessió
+        if operari_sel and not session.get("operari_autenticat"):
+            session["operari_autenticat"] = operari_sel
+
+        if not session.get("operari_autenticat") or not operari_sel:
             return render_template("login_operari.html", operaris=operaris, operari_sel=operari_sel, error=request.args.get("error_auth"))
 
     confirm_idx = request.args.get("confirm_idx", type=int)
     edit_reg_info = {"task_idx": request.args.get("edit_task_idx", type=int), "reg_idx": request.args.get("edit_reg_idx", type=int)}
     
-    # 📦 Carregar la base de dades d'articles per a l'autocompletat (amb Stock i Ubicació)
     df_articles = carregar_articles()
     llista_articles = []
     if not df_articles.empty:
@@ -191,7 +184,6 @@ def vista_operari():
                 if ref_int: etiqueta += f" (INT: {ref_int})"
                 if desc: etiqueta += f" - {desc}"
                 
-                # Afegir Stock i Ubicació visibles per a l'operari
                 detalls_extra = []
                 if stock: detalls_extra.append(f"Stock: {stock}")
                 if ubicacio: detalls_extra.append(f"Ubicació: {ubicacio}")
@@ -249,13 +241,18 @@ def vista_operari():
                 item["fotos"] = fotos
                 tasques_op.append(item)
 
-    return render_template("operari.html", operaris=operaris, operari_sel=operari_sel, perfil=perfil_data, tasques=tasques_op, confirm_idx=confirm_idx, edit_reg_info=edit_reg_info, articles=llista_articles, es_admin=es_admin)
+    response = make_response(render_template("operari.html", operaris=operaris, operari_sel=operari_sel, perfil=perfil_data, tasques=tasques_op, confirm_idx=confirm_idx, edit_reg_info=edit_reg_info, articles=llista_articles, es_admin=es_admin))
+    
+    # 🔒 Assegurar la Cookie persistent de seguretat
+    if operari_sel:
+        response.set_cookie("operari_saved", operari_sel, max_age=30*24*3600)
+        
+    return response
 
 @operari_bp.route("/login_operari", methods=["POST"])
 def login_operari():
     operari_sel = request.form.get("operari", "").strip()
     password_input = request.form.get("password", "").strip()
-    remember = request.form.get("remember")
     
     df_operaris = carregar_df_operaris()
     
@@ -266,14 +263,10 @@ def login_operari():
             pwd_esperada = pwd_guardada if pwd_guardada else operari_sel
             
             if password_input.upper() == pwd_esperada.upper():
+                # 🔒 GRAVEM LA SESSIÓ AL SERVIDOR I COOKIE PERSISTENT
                 session["operari_autenticat"] = operari_sel
                 response = make_response(redirect(url_for("operari.vista_operari", operari=operari_sel)))
-                
-                if remember == "1":
-                    response.set_cookie("operari_saved", operari_sel, max_age=30*24*3600)
-                else:
-                    response.delete_cookie("operari_saved")
-                    
+                response.set_cookie("operari_saved", operari_sel, max_age=30*24*3600)
                 return response
     
     return redirect(url_for("operari.vista_operari", operari=operari_sel, error_auth=1))
@@ -394,7 +387,7 @@ def validar_codi_recuperacio():
 
 @operari_bp.route("/guardar_perfil_operari", methods=["POST"])
 def guardar_perfil_operari():
-    operari_sel = request.form.get("operari_sel", "").strip()
+    operari_sel = request.form.get("operari_sel", "").strip() or session.get("operari_autenticat", "").strip()
     cognoms = request.form.get("cognoms", "").strip()
     telefon = request.form.get("telefon", "").strip()
     email = request.form.get("email", "").strip().lower()
@@ -445,7 +438,7 @@ def toggle_checklist_item():
 @operari_bp.route("/iniciar_crono", methods=["POST"])
 def iniciar_crono():
     idx = int(request.form.get("csv_index"))
-    operari_sel = request.form.get("operari_sel")
+    operari_sel = request.form.get("operari_sel", "").strip() or session.get("operari_autenticat", "").strip()
     df = carregar_tasques()
     
     if 0 <= idx < len(df):
@@ -465,7 +458,7 @@ def iniciar_crono():
 @operari_bp.route("/aturar_crono", methods=["POST"])
 def aturar_crono():
     idx = int(request.form.get("csv_index"))
-    operari_sel = request.form.get("operari_sel")
+    operari_sel = request.form.get("operari_sel", "").strip() or session.get("operari_autenticat", "").strip()
     df = carregar_tasques()
     
     if 0 <= idx < len(df):
@@ -514,7 +507,7 @@ def aturar_crono():
 @operari_bp.route("/registrar_sollicitud_material", methods=["POST"])
 def registrar_sollicitud_material():
     idx = int(request.form.get("csv_index"))
-    operari_sel = request.form.get("operari_sel")
+    operari_sel = request.form.get("operari_sel", "").strip() or session.get("operari_autenticat", "").strip()
     material_text = request.form.get("material_text", "").strip()
     via = request.form.get("via", "WhatsApp")
     
@@ -551,7 +544,7 @@ def canviar_estat_material():
     idx = int(request.form.get("csv_index"))
     mat_idx = int(request.form.get("mat_index"))
     nou_estat = request.form.get("nou_estat")
-    operari_sel = request.form.get("operari_sel", "")
+    operari_sel = request.form.get("operari_sel", "").strip() or session.get("operari_autenticat", "").strip()
     redirect_to = request.form.get("redirect_to", "operari")
     
     df = carregar_tasques()
@@ -579,7 +572,7 @@ def canviar_estat_material():
 @operari_bp.route("/pujar_foto", methods=["POST"])
 def pujar_foto():
     idx = int(request.form.get("csv_index"))
-    operari_sel = request.form.get("operari_sel")
+    operari_sel = request.form.get("operari_sel", "").strip() or session.get("operari_autenticat", "").strip()
     file = request.files.get("foto")
     if file and file.filename != '':
         df = carregar_tasques()
@@ -593,7 +586,7 @@ def pujar_foto():
 @operari_bp.route("/confirmar_finalitzacio", methods=["POST"])
 def confirmar_finalitzacio():
     idx = int(request.form.get("csv_index"))
-    operari_sel = request.form.get("operari_sel")
+    operari_sel = request.form.get("operari_sel", "").strip() or session.get("operari_autenticat", "").strip()
     es_finalitzada = request.form.get("es_finalitzada")
     
     df = carregar_tasques()
@@ -611,7 +604,7 @@ def confirmar_finalitzacio():
 def afegir_temps_manual():
     idx = int(request.form.get("csv_index"))
     hora_inici, hora_fi = request.form.get("hora_inici"), request.form.get("hora_fi")
-    operari_sel = request.form.get("operari_sel")
+    operari_sel = request.form.get("operari_sel", "").strip() or session.get("operari_autenticat", "").strip()
     
     t_inici, t_fi = datetime.strptime(hora_inici, "%H:%M"), datetime.strptime(hora_fi, "%H:%M")
     if t_fi < t_inici: t_fi += pd.Timedelta(days=1)
@@ -644,7 +637,7 @@ def afegir_temps_manual():
 @operari_bp.route("/eliminar_registre_hora", methods=["POST"])
 def eliminar_registre_hora():
     idx, reg_idx = int(request.form.get("csv_index")), int(request.form.get("reg_index"))
-    operari_sel = request.form.get("operari_sel")
+    operari_sel = request.form.get("operari_sel", "").strip() or session.get("operari_autenticat", "").strip()
     df = carregar_tasques()
     
     if 0 <= idx < len(df):
@@ -674,7 +667,7 @@ def eliminar_registre_hora():
 def guardar_edicio_hora():
     idx, reg_idx = int(request.form.get("csv_index")), int(request.form.get("reg_index"))
     hora_inici, hora_fi = request.form.get("hora_inici"), request.form.get("hora_fi")
-    operari_sel = request.form.get("operari_sel")
+    operari_sel = request.form.get("operari_sel", "").strip() or session.get("operari_autenticat", "").strip()
     df = carregar_tasques()
     com_actual = df.at[idx, "Comentaris_Operari"]
     registres = extreure_historial_hores(com_actual)
@@ -698,7 +691,7 @@ def guardar_edicio_hora():
 @operari_bp.route("/guardar_notes_operari", methods=["POST"])
 def guardar_notes_operari():
     idx = int(request.form.get("csv_index"))
-    operari_sel = request.form.get("operari_sel")
+    operari_sel = request.form.get("operari_sel", "").strip() or session.get("operari_autenticat", "").strip()
     notes_text = request.form.get("notes_operari", "").strip()
     df = carregar_tasques()
     if "Notes_Text" not in df.columns: df["Notes_Text"] = ""
@@ -709,7 +702,7 @@ def guardar_notes_operari():
 @operari_bp.route("/reobrir_tasca", methods=["POST"])
 def reobrir_tasca():
     idx = int(request.form.get("csv_index"))
-    operari_sel = request.form.get("operari_sel")
+    operari_sel = request.form.get("operari_sel", "").strip() or session.get("operari_autenticat", "").strip()
     df = carregar_tasques()
     df.at[idx, "Estat"] = "Pendent"
     guardar_tasques(df)
@@ -740,7 +733,7 @@ def afegir_operari():
 
 @operari_bp.route("/canviar_contrasenya", methods=["POST"])
 def canviar_contrasenya():
-    operari_sel = request.form.get("operari_sel", "").strip()
+    operari_sel = request.form.get("operari_sel", "").strip() or session.get("operari_autenticat", "").strip()
     pwd_actual = request.form.get("pwd_actual", "").strip()
     pwd_nova = request.form.get("pwd_nova", "").strip()
     
@@ -776,7 +769,7 @@ def canviar_contrasenya():
 
 @operari_bp.route("/recuperar_contrasenya", methods=["POST"])
 def recuperar_contrasenya():
-    operari_sel = request.form.get("operari_sel")
+    operari_sel = request.form.get("operari_sel", "").strip() or session.get("operari_autenticat", "").strip()
     via = request.form.get("via", "WhatsApp")
     
     msg = f"🔑 *SOL·LICITUD DE RECUPERACIÓ DE CONTRASENYA*\n👷 *Operari:* {operari_sel}\n\nHola Admin, he oblidat la meva contrasenya per accedir al panell de treball."
@@ -791,7 +784,6 @@ def recuperar_contrasenya():
 
 @operari_bp.route("/registrar_material_no_subministrat", methods=["POST"])
 def registrar_material_no_subministrat():
-    # Carregar operari actiu des del formulari o de la sessió de seguretat
     operari_sel = request.form.get("operari_sel", "").strip() or session.get("operari_autenticat", "").strip() or request.cookies.get("operari_saved", "").strip()
     
     try:
@@ -808,7 +800,6 @@ def registrar_material_no_subministrat():
             stock_trobat = ""
             ubicacio_trobada = ""
             
-            # Netegem la referència si ve del datalist o de l'escàner
             ref_neta = referencia_input.split(" - ")[0].split(" (")[0].split(" [")[0].strip()
             
             if not df_articles.empty and "Ref" in df_articles.columns:
@@ -818,7 +809,6 @@ def registrar_material_no_subministrat():
                     stock_trobat = str(match.iloc[0].get("Stock", "0")).strip()
                     ubicacio_trobada = str(match.iloc[0].get("Ubicacio", "")).strip()
             
-            # Construcció del format del text amb quantitat/unitats
             prefix_quantitat = f"[{quantitat} ut.] " if quantitat else ""
 
             if descripcio_trobada:
@@ -870,7 +860,6 @@ def eliminar_material_no_subministrat():
         
         if 0 <= mat_idx < len(registres):
             reg_a_eliminar = registres[mat_idx]["raw_text"]
-            # Eliminar la línia corresponent
             linies = [l.strip() for l in text_actual.split("\n") if l.strip()]
             linies_filtrades = [l for l in linies if l != reg_a_eliminar]
             
@@ -881,6 +870,7 @@ def eliminar_material_no_subministrat():
         return redirect(url_for("operari.vista_operari", operari=operari_sel))
     else:
         return redirect(request.referrer or url_for("operari.vista_operari"))
+
 
 
 
