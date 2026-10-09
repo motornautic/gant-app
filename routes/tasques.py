@@ -26,6 +26,8 @@ def vista_tasques():
     if not df_tasques.empty:
         if "Data_Creacio" not in df_tasques.columns:
             df_tasques["Data_Creacio"] = ""
+        if "Project_Manager" not in df_tasques.columns:
+            df_tasques["Project_Manager"] = ""
 
         for idx, row in df_tasques.iterrows():
             item = row.to_dict()
@@ -83,6 +85,7 @@ def afegir_tasca():
     
     embarcacio = request.form.get("embarcacio", "").strip()
     titol = request.form.get("titol", "").strip()
+    project_manager = request.form.get("project_manager", "").strip()
     detall = request.form.get("detall", "").strip()
     prioritat = request.form.get("prioritat", "Normal")
     estat_inicial = request.form.get("estat_inicial", "Pendent").strip()
@@ -97,10 +100,12 @@ def afegir_tasca():
         if "Data_Inici" not in df.columns: df["Data_Inici"] = ""
         if "Data_Fi" not in df.columns: df["Data_Fi"] = ""
         if "Data_Creacio" not in df.columns: df["Data_Creacio"] = ""
+        if "Project_Manager" not in df.columns: df["Project_Manager"] = ""
         
         nova_tasca = pd.DataFrame([{
             "Embarcació": embarcacio,
             "Titol_Tasca": titol,
+            "Project_Manager": project_manager,
             "Tasques_Detall": detall,
             "Operari": operaris_str,
             "Prioritat": prioritat,
@@ -131,12 +136,14 @@ def editar_tasca():
         
         df.at[idx, "Embarcació"] = request.form.get("embarcacio", "").strip()
         df.at[idx, "Titol_Tasca"] = request.form.get("titol", "").strip()
+        df.at[idx, "Project_Manager"] = request.form.get("project_manager", "").strip()
         df.at[idx, "Tasques_Detall"] = request.form.get("detall", "").strip()
         df.at[idx, "Operari"] = operaris_str
         df.at[idx, "Prioritat"] = request.form.get("prioritat", "Normal")
         
         if "Data_Inici" not in df.columns: df["Data_Inici"] = ""
         if "Data_Fi" not in df.columns: df["Data_Fi"] = ""
+        if "Project_Manager" not in df.columns: df["Project_Manager"] = ""
         
         df.at[idx, "Data_Inici"] = request.form.get("data_inici", "").strip()
         df.at[idx, "Data_Fi"] = request.form.get("data_fi", "").strip()
@@ -227,3 +234,4 @@ def toggle_pressupost_enviat():
         guardar_tasques(df)
         
     return redirect(url_for("tasques.vista_tasques"))
+
