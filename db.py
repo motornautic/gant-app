@@ -80,7 +80,7 @@ def carregar_operaris():
 
 def carregar_tasques():
     columnes_tasques = [
-        "Embarcació", "Titol_Tasca", "Operari", "Estat", "Data_Inici", 
+        "Embarcació", "Titol_Tasca", "Operari", "Project-Manager", "Estat", "Data_Inici", 
         "Prioritat", "Tasques_Detall", "Comentaris_Operari", "Hores_Imputades", 
         "Inici_Crono", "Material_Demanat", "Material_No_Subministrat", "Notes_Text"
     ]
