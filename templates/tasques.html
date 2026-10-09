@@ -84,6 +84,12 @@
                 </select>
             </div>
 
+            <!-- 👔 CAMP PROJECT MANAGER / RESPONSABLE -->
+            <div class="lg:col-span-2">
+                <label class="block text-xs font-bold mb-1">👔 Project Manager / Responsable</label>
+                <input type="text" name="project_manager" placeholder="Ex: MARC / XAVI" class="w-full p-2 border rounded text-xs bg-slate-50 font-semibold">
+            </div>
+
             <div>
                 <label class="block text-xs font-bold mb-1">📅 Data Inici</label>
                 <input type="date" name="data_inici" class="w-full p-2 border rounded text-xs bg-slate-50 font-semibold">
@@ -95,7 +101,7 @@
             </div>
 
             <!-- 👷 DESPLEGABLE D'OPERARIS -->
-            <div class="lg:col-span-3">
+            <div class="lg:col-span-2">
                 <label class="block text-xs font-bold mb-1">Operaris Assignats</label>
                 <select name="operaris" id="selectOperarisCrear" multiple placeholder="Cerca o selecciona operaris..." class="w-full p-2 border rounded text-xs bg-slate-50 font-semibold">
                     {% for op in operaris %}
@@ -104,7 +110,7 @@
                 </select>
             </div>
 
-            <div class="lg:col-span-3">
+            <div class="lg:col-span-2">
                 <label class="block text-xs font-bold mb-1">Prioritat / Estat Inicial</label>
                 <div class="grid grid-cols-2 gap-2">
                     <select name="prioritat" class="w-full p-2 border rounded text-xs bg-slate-50 font-bold">
@@ -209,6 +215,10 @@
 
                     <!-- BLOC D'INFORMACIÓ I DATES FORMATADES -->
                     <div class="text-[10px] text-slate-500 space-y-1 border-t pt-1.5 mb-2">
+                        {% if t.Project_Manager %}
+                        <div>👔 PM: <strong class="text-purple-900 font-bold">{{ t.Project_Manager }}</strong></div>
+                        {% endif %}
+
                         <div>👨‍🔧 Operari: <strong class="text-slate-700">{{ t.Operari if t.Operari else 'Sense Assignar' }}</strong></div>
                         
                         {% if t.Data_Creacio %}
@@ -360,6 +370,11 @@
                 </div>
 
                 <div>
+                    <label class="block text-xs font-bold mb-1">👔 Project Manager / Responsable</label>
+                    <input type="text" name="project_manager" value="{{ tasca_edit.Project_Manager if tasca_edit.Project_Manager else '' }}" placeholder="Ex: MARC / XAVI" class="w-full p-2 border rounded text-xs bg-slate-50 font-semibold">
+                </div>
+
+                <div>
                     <label class="block text-xs font-bold mb-1">Prioritat</label>
                     <select name="prioritat" class="w-full p-2 border rounded text-xs bg-slate-50 font-bold">
                         <option value="Normal" {% if tasca_edit.Prioritat == 'Normal' %}selected{% endif %}>🟢 Normal</option>
@@ -420,8 +435,8 @@
         <div class="p-5 space-y-5 text-xs text-slate-700">
             <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-slate-50 p-3 rounded-xl border">
                 <div>
-                    <span class="block text-slate-400 font-semibold">📝 Data Creació</span>
-                    <span class="font-bold text-slate-800">{{ tasca_view.Data_Creacio if tasca_view.Data_Creacio else '-' }}</span>
+                    <span class="block text-slate-400 font-semibold">👔 Project Manager</span>
+                    <span class="font-bold text-purple-900">{{ tasca_view.Project_Manager if tasca_view.Project_Manager else '-' }}</span>
                 </div>
                 <div>
                     <span class="block text-slate-400 font-semibold">👷 Operaris Assignats</span>
@@ -604,5 +619,3 @@ function filtrarVistaEstat(estatDemanat) {
 }
 </script>
 {% endblock %}
-
-
