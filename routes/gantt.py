@@ -55,24 +55,28 @@ def vista_gantt():
             estat = str(row.get("Estat", "Pendent")).strip()
             arxivada = str(row.get("Arxivada", "")).strip().lower()
 
-            # 🚫 OMETRE TASQUES ARXIVADES
-            if estat.lower() == "arxivada" or arxivada in ["true", "1", "si", "sí"]:
+            # 🚫 OMETRE TASQUES ARXIVADES O EN ESTAT PRESSUPOST
+            if estat.lower() in ["arxivada", "pressupost"] or arxivada in ["true", "1", "si", "sí"]:
                 continue
 
-            data_inici = str(row.get("Data_Inici", "")).strip() or avui_str
-            data_fi = str(row.get("Data_Fi", "")).strip() or dema_str
+            data_inici = str(row.get("Data_Inici", "")).strip()
+            
+            # 🚫 OMETRE TASQUES SENSE DATA D'INICI (NO HAN D'APARÈIXER AL GANTT)
+            if not data_inici or data_inici.lower() in ["nan", "none"]:
+                continue
+
+            data_fi = str(row.get("Data_Fi", "")).strip() or data_inici
             
             try: 
                 dt_inici = datetime.strptime(data_inici, "%Y-%m-%d").date()
             except: 
-                dt_inici = avui_dt.date()
-                data_inici = avui_str
+                continue  # Si la data no té format vàlid, tampoc es mostra
             
             try: 
                 dt_fi = datetime.strptime(data_fi, "%Y-%m-%d").date()
             except: 
-                dt_fi = avui_dt.date()
-                data_fi = dema_str
+                dt_fi = dt_inici
+                data_fi = data_inici
 
             if dt_fi < limit_7_dies_enrere:
                 continue
@@ -137,3 +141,4 @@ def actualitzar_dates_gantt():
         return jsonify({"status": "error", "message": "Índex de tasca no trobat"}), 404
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
+
