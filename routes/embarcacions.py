@@ -4,10 +4,11 @@ import os, re, json
 from datetime import datetime
 from werkzeug.utils import secure_filename
 from routes.clients import carregar_clients
+# 🚀 IMPORTEM DE DB.PY PER GARANTIR LA CONEXIÓ AMB POSTGRESQL
+from db import carregar_embarcacions, guardar_embarcacions
 
 embarcacions_bp = Blueprint('embarcacions', __name__)
 
-CSV_EMBARCACIONS = "embarcacions.csv"
 JSON_MOTORS_CUSTOM = "motors_custom.json"
 
 DIC_MOTORS_BASE = {
@@ -63,24 +64,13 @@ def extreure_historial_hores_motor(text_historial):
 def extreure_enllacs(text_enllacs):
     if not text_enllacs: return []
     registres = []
-    patro = r'\[([^\|]+)\|([^\]]+)\]'
+    patro = r'\[([^\Vert{}]+)\Vert{}([^\]]+)\]'
     coincidencies = list(re.finditer(patro, text_enllacs))
     for idx, match in enumerate(coincidencies):
         titol, url = match.groups()
         es_pdf = url.lower().endswith('.pdf')
         registres.append({"link_index": idx, "titol": titol.strip(), "url": url.strip(), "es_pdf": es_pdf, "raw_text": match.group(0)})
     return registres
-
-def carregar_embarcacions():
-    if os.path.exists(CSV_EMBARCACIONS):
-        df = pd.read_csv(CSV_EMBARCACIONS, dtype=str).fillna("")
-        for col in ["Nom", "Client_Propietari", "Marca_Motor", "Model_Motor", "Num_Motors", "Num_Serie_Motors", "Hores_Motor", "Data_Hores", "Historial_Hores", "Enllacs", "Model_Barco", "Matricula", "Port", "Amarre", "Claus", "Comentaris"]:
-            if col not in df.columns: df[col] = ""
-        return df
-    return pd.DataFrame(columns=["Nom", "Client_Propietari", "Marca_Motor", "Model_Motor", "Num_Motors", "Num_Serie_Motors", "Hores_Motor", "Data_Hores", "Historial_Hores", "Enllacs", "Model_Barco", "Matricula", "Port", "Amarre", "Claus", "Comentaris"])
-
-def guardar_embarcacions(df):
-    df.to_csv(CSV_EMBARCACIONS, index=False)
 
 @embarcacions_bp.route("/embarcacions", methods=["GET"])
 def vista_embarcacions():
@@ -91,7 +81,7 @@ def vista_embarcacions():
     llista_clients_noms = []
     if not df_cli.empty:
         for _, r in df_cli.iterrows():
-            nom_comp = f"{r['Nom']} {r['Cognoms']}".strip() if r['Tipus'] == 'Particular' else r['Nom']
+            nom_comp = f"{r['Nom']} {r['Cognoms']}".strip() if r.get('Tipus') == 'Particular' else r.get('Nom', '')
             if nom_comp: llista_clients_noms.append(nom_comp)
 
     llista_emb = []
@@ -231,7 +221,6 @@ def eliminar_document_embarcacio():
         if 0 <= link_idx < len(enllacs):
             doc_esborrar = enllacs.pop(link_idx)
             
-            # Si és un PDF local, esborrar el fitxer físic del disc
             if doc_esborrar["es_pdf"]:
                 emb_folder = secure_filename(df.at[idx, "Nom"])
                 rel_path = doc_esborrar["url"].replace(f"/uploads/{emb_folder}/", "")
@@ -240,7 +229,6 @@ def eliminar_document_embarcacio():
                     try: os.remove(filepath)
                     except Exception: pass
             
-            # Tornar a construir la cadena d'enllaços per guardar
             nous_enllacs_str = " | ".join([f"[{d['titol']}|{d['url']}]" for d in enllacs])
             df.at[idx, "Enllacs"] = nous_enllacs_str
             guardar_embarcacions(df)
@@ -287,114 +275,4 @@ def afegir_embarcacio():
             emb_folder = secure_filename(nom)
             dest_dir = os.path.join(current_app.config['UPLOAD_FOLDER'], emb_folder)
             os.makedirs(dest_dir, exist_ok=True)
-            filename = f"DOC_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{secure_filename(file.filename)}"
-            file.save(os.path.join(dest_dir, filename))
-            url_final = f"/uploads/{emb_folder}/{filename}"
-            if not titol_doc: titol_doc = secure_filename(file.filename)
-            enllac_inicial = f"[{titol_doc}|{url_final}]"
-    elif tipus_doc == "url":
-        url_input = request.form.get("url_doc", "").strip()
-        if titol_doc and url_input: enllac_inicial = f"[{titol_doc}|{url_input}]"
 
-    historial_str = ""
-    if any(hores_list):
-        data_format = datetime.strptime(data_hores, "%Y-%m-%d").strftime("%d/%m/%Y") if data_hores else datetime.now().strftime("%d/%m/%Y")
-        historial_str = f"[{data_format}: {hores_str} h]"
-
-    if nom:
-        df = carregar_embarcacions()
-        nova = pd.DataFrame([{
-            "Nom": nom, "Client_Propietari": client, "Marca_Motor": marca_motor, "Model_Motor": model_motor,
-            "Num_Motors": num_motors, "Num_Serie_Motors": num_serie_str, "Hores_Motor": hores_str, "Data_Hores": data_hores, 
-            "Historial_Hores": historial_str, "Enllacs": enllac_inicial, "Model_Barco": model_barco, "Matricula": matricula, 
-            "Port": port, "Amarre": amarre, "Claus": claus, "Comentaris": comentaris
-        }])
-        df = pd.concat([df, nova], ignore_index=True)
-        guardar_embarcacions(df)
-        
-    return redirect(url_for("embarcacions.vista_embarcacions"))
-
-@embarcacions_bp.route("/actualitzar_hores", methods=["POST"])
-def actualitzar_hores():
-    idx = int(request.form.get("csv_index"))
-    df = carregar_embarcacions()
-    num_m = int(df.at[idx, "Num_Motors"]) if str(df.at[idx, "Num_Motors"]).isdigit() else 1
-    
-    noves_hores_list = [request.form.get(f"noves_hores_{i}", "").strip() for i in range(num_m)]
-    nova_data = request.form.get("nova_data", "").strip()
-    
-    if any(noves_hores_list):
-        hores_str = ", ".join(noves_hores_list)
-        data_format = datetime.strptime(nova_data, "%Y-%m-%d").strftime("%d/%m/%Y") if nova_data else datetime.now().strftime("%d/%m/%Y")
-        nou_reg = f"[{data_format}: {hores_str} h]"
-        hist_act = df.at[idx, "Historial_Hores"]
-        df.at[idx, "Historial_Hores"] = f"{hist_act} | {nou_reg}" if hist_act else nou_reg
-        df.at[idx, "Hores_Motor"] = hores_str
-        df.at[idx, "Data_Hores"] = nova_data
-        guardar_embarcacions(df)
-        
-    return redirect(url_for("embarcacions.vista_embarcacions"))
-
-@embarcacions_bp.route("/editar_embarcacio", methods=["POST"])
-def editar_embarcacio():
-    idx = int(request.form.get("csv_index"))
-    df = carregar_embarcacions()
-    
-    if 0 <= idx < len(df):
-        marca_motor = request.form.get("marca_motor", "").strip()
-        if marca_motor == "ALTRES": 
-            marca_motor = request.form.get("marca_motor_custom", "").strip()
-            
-        model_motor = request.form.get("model_motor", "").strip()
-        if model_motor == "ALTRES": 
-            model_motor = request.form.get("model_motor_custom", "").strip()
-        
-        if marca_motor and model_motor: 
-            guardar_nou_motor_custom(marca_motor, model_motor)
-
-        num_motors = request.form.get("num_motors", "1").strip()
-        num_motors_int = int(num_motors) if num_motors.isdigit() else 1
-
-        series_list = [request.form.get(f"num_serie_{i}", "").strip() for i in range(num_motors_int)]
-        hores_list = [request.form.get(f"hores_motor_{i}", "").strip() for i in range(num_motors_int)]
-        
-        num_serie_str = ", ".join(series_list)
-        hores_str = ", ".join(hores_list)
-        
-        nova_data = request.form.get("data_hores", "").strip()
-
-        df.at[idx, "Nom"] = request.form.get("nom", "").strip()
-        df.at[idx, "Client_Propietari"] = request.form.get("client_propietari", "").strip()
-        df.at[idx, "Marca_Motor"] = marca_motor
-        df.at[idx, "Model_Motor"] = model_motor
-        df.at[idx, "Num_Motors"] = num_motors
-        df.at[idx, "Num_Serie_Motors"] = num_serie_str
-        
-        # Si les hores han canviat, actualitzar camp i afegir registre a l'historial
-        if hores_str and hores_str != df.at[idx, "Hores_Motor"]:
-            data_format = datetime.strptime(nova_data, "%Y-%m-%d").strftime("%d/%m/%Y") if nova_data else datetime.now().strftime("%d/%m/%Y")
-            nou_reg = f"[{data_format}: {hores_str} h]"
-            hist_act = df.at[idx, "Historial_Hores"]
-            df.at[idx, "Historial_Hores"] = f"{hist_act} | {nou_reg}" if hist_act else nou_reg
-            df.at[idx, "Hores_Motor"] = hores_str
-            df.at[idx, "Data_Hores"] = nova_data
-
-        df.at[idx, "Model_Barco"] = request.form.get("model_barco", "").strip()
-        df.at[idx, "Matricula"] = request.form.get("matricula", "").strip()
-        df.at[idx, "Port"] = request.form.get("port", "").strip()
-        df.at[idx, "Amarre"] = request.form.get("amarre", "").strip()
-        df.at[idx, "Claus"] = request.form.get("claus", "").strip()
-        df.at[idx, "Comentaris"] = request.form.get("comentaris", "").strip()
-        
-        guardar_embarcacions(df)
-        
-    return redirect(url_for("embarcacions.vista_embarcacions"))
-
-@embarcacions_bp.route("/eliminar_embarcacio", methods=["POST"])
-def eliminar_embarcacio():
-    idx = int(request.form.get("csv_index"))
-    df = carregar_embarcacions()
-    if 0 <= idx < len(df):
-        df = df.drop(idx).reset_index(drop=True)
-        guardar_embarcacions(df)
-    return redirect(url_for("embarcacions.vista_embarcacions"))
