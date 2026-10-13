@@ -1,41 +1,10 @@
 from flask import Blueprint, render_template, request, redirect, url_for, send_file
 import pandas as pd
-import os
 import io
+# 🚀 IMPORTEM DE DB.PY PER GARANTIR PERSISTÈNCIA A POSTGRESQL
+from db import carregar_clients, guardar_clients
 
 clients_bp = Blueprint('clients', __name__)
-
-CSV_CLIENTS = "clients.csv"
-
-def carregar_clients():
-    if os.path.exists(CSV_CLIENTS):
-        try:
-            df = pd.read_csv(CSV_CLIENTS, dtype=str, on_bad_lines='skip').fillna("")
-        except Exception:
-            df = pd.read_csv(CSV_CLIENTS, dtype=str, engine='python').fillna("")
-        for col in ["ID", "Tipus", "Nom", "Cognoms", "Persona_Contacte", "NIF", "Telèfon", "Email", "Carrer", "Adreça", "CP", "Poblacio", "Embarcació", "Port", "Amarre", "Claus", "Comentaris"]:
-            if col not in df.columns:
-                df[col] = ""
-        return df
-
-    dades_ex = [
-        {
-            "ID": "CLI-001", "Tipus": "Empresa", "Nom": "MARINA ARENYS S.L.", "Cognoms": "", "Persona_Contacte": "Carles Soler", "NIF": "B12345678",
-            "Telèfon": "937900000", "Email": "info@marina.cat", "Carrer": "Port Arenys s/n", "Adreça": "Port Arenys s/n", "CP": "08350", "Poblacio": "Arenys de Mar",
-            "Embarcació": "PINCOY CBC", "Port": "Arenys de Mar", "Amarre": "12", "Claus": "Penjada a oficina", "Comentaris": "Client habitual"
-        },
-        {
-            "ID": "CLI-002", "Tipus": "Particular", "Nom": "Joan", "Cognoms": "Garcia Perez", "Persona_Contacte": "", "NIF": "12345678Z",
-            "Telèfon": "600112233", "Email": "joan@gmail.com", "Carrer": "Carrer Mar 45", "Adreça": "Carrer Mar 45", "CP": "08392", "Poblacio": "Llavaneres",
-            "Embarcació": "SHAMAN", "Port": "El Balís", "Amarre": "A-44", "Claus": "Caixa 3", "Comentaris": "Manteniment anual"
-        }
-    ]
-    df_ex = pd.DataFrame(dades_ex)
-    df_ex.to_csv(CSV_CLIENTS, index=False)
-    return df_ex
-
-def guardar_clients(df):
-    df.to_csv(CSV_CLIENTS, index=False)
 
 def generar_nou_id(df):
     if df.empty or "ID" not in df.columns:
@@ -168,7 +137,6 @@ def eliminar_client():
         guardar_clients(df)
     return redirect(url_for("clients.vista_clients"))
 
-# EXPORTAR CLIENTS A EXCEL
 @clients_bp.route("/exportar_clients_excel", methods=["GET"])
 def exportar_clients_excel():
     df = carregar_clients()
@@ -178,51 +146,23 @@ def exportar_clients_excel():
     output.seek(0)
     return send_file(output, download_name="Clients_MotorNautic.xlsx", as_attachment=True)
 
-
-# IMPORTAR CLIENTS DES DE FITXER EXCEL (COMPATIBLE AMB TOTES LES VERSIONS DE PANDAS)
 @clients_bp.route("/importar_clients_excel", methods=["POST"])
 def importar_clients_excel():
     file = request.files.get("fitxer_excel")
     if file and (file.filename.endswith('.xlsx') or file.filename.endswith('.xls')):
-        # 1. Llegir l'Excel
         df_nou = pd.read_excel(file, dtype=str).fillna("")
-        
-        # 2. Eliminar columnes sense nom o buides ("Unnamed: ...")
         df_nou = df_nou.loc[:, ~df_nou.columns.str.contains('^Unnamed')]
-        
-        # 3. Eliminar noms de columnes duplicats directament a l'Excel importat
         df_nou = df_nou.loc[:, ~df_nou.columns.duplicated()]
         
-        # 4. Diccionari de sinònims per homologar columnes de l'Excel
         mapa_columnes = {
-            "població": "Poblacio",
-            "poblacio": "Poblacio",
-            "poblacio/ciutat": "Poblacio",
-            "ciutat": "Poblacio",
-            "codi postal": "CP",
-            "codi_postal": "CP",
-            "cp": "CP",
-            "zip": "CP",
-            "email": "Email",
-            "e-mail": "Email",
-            "correu": "Email",
-            "correu electronic": "Email",
-            "correu electrònic": "Email",
-            "carrer": "Carrer",
-            "adreça": "Carrer",
-            "adreca": "Carrer",
-            "telèfon": "Telèfon",
-            "telefon": "Telèfon",
-            "nif": "NIF",
-            "cif": "NIF",
-            "dni": "NIF",
-            "nif/cif": "NIF",
-            "embarcació": "Embarcació",
-            "embarcacio": "Embarcació",
-            "barco": "Embarcació"
+            "població": "Poblacio", "poblacio": "Poblacio", "poblacio/ciutat": "Poblacio", "ciutat": "Poblacio",
+            "codi postal": "CP", "codi_postal": "CP", "cp": "CP", "zip": "CP",
+            "email": "Email", "e-mail": "Email", "correu": "Email", "correu electronic": "Email", "correu electrònic": "Email",
+            "carrer": "Carrer", "adreça": "Carrer", "adreca": "Carrer",
+            "telèfon": "Telèfon", "telefon": "Telèfon", "nif": "NIF", "cif": "NIF", "dni": "NIF", "nif/cif": "NIF",
+            "embarcació": "Embarcació", "embarcacio": "Embarcació", "barco": "Embarcació"
         }
         
-        # Normalitzar els noms de les columnes
         noves_col = {}
         for col in df_nou.columns:
             col_clean = str(col).strip().lower()
@@ -230,23 +170,17 @@ def importar_clients_excel():
                 noves_col[col] = mapa_columnes[col_clean]
         
         df_nou = df_nou.rename(columns=noves_col)
-        
-        # Després de reanomenar, si s'han generat noms de columnes duplicats, els unifiquem sense fer servir 'axis=1'
         df_nou = df_nou.T.groupby(level=0).first().T
         
-        # 5. Carregar dades actuals i netejar columnes duplicades
         df_actual = carregar_clients()
         df_actual = df_actual.loc[:, ~df_actual.columns.duplicated()]
         
-        # 6. Fusionar les dades de forma segura
         df_fusionat = pd.concat([df_actual, df_nou], ignore_index=True).fillna("")
         df_fusionat = df_fusionat.loc[:, ~df_fusionat.columns.duplicated()]
         
-        # Assegurar que 'Adreça' i 'Carrer' mantenen coherència
         if "Carrer" in df_fusionat.columns:
             df_fusionat["Adreça"] = df_fusionat["Carrer"]
             
-        # Generar IDs per als nous clients que no en tinguin
         for idx in range(len(df_fusionat)):
             if "ID" not in df_fusionat.columns or not df_fusionat.at[idx, "ID"]:
                 df_fusionat.at[idx, "ID"] = f"CLI-{(idx + 1):03d}"
