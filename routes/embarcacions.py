@@ -64,7 +64,7 @@ def extreure_historial_hores_motor(text_historial):
 def extreure_enllacs(text_enllacs):
     if not text_enllacs: return []
     registres = []
-    patro = r'\[([^\Vert{}]+)\Vert{}([^\]]+)\]'
+    patro = r'\[([^\|]+)\|([^\]]+)\]'
     coincidencies = list(re.finditer(patro, text_enllacs))
     for idx, match in enumerate(coincidencies):
         titol, url = match.groups()
@@ -275,4 +275,115 @@ def afegir_embarcacio():
             emb_folder = secure_filename(nom)
             dest_dir = os.path.join(current_app.config['UPLOAD_FOLDER'], emb_folder)
             os.makedirs(dest_dir, exist_ok=True)
+            filename = f"DOC_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{secure_filename(file.filename)}"
+            file.save(os.path.join(dest_dir, filename))
+            url_final = f"/uploads/{emb_folder}/{filename}"
+            if not titol_doc: titol_doc = secure_filename(file.filename)
+            enllac_inicial = f"[{titol_doc}|{url_final}]"
+    elif tipus_doc == "url":
+        url_input = request.form.get("url_doc", "").strip()
+        if titol_doc and url_input: enllac_inicial = f"[{titol_doc}|{url_input}]"
+
+    historial_str = ""
+    if any(hores_list):
+        data_format = datetime.strptime(data_hores, "%Y-%m-%d").strftime("%d/%m/%Y") if data_hores else datetime.now().strftime("%d/%m/%Y")
+        historial_str = f"[{data_format}: {hores_str} h]"
+
+    if nom:
+        df = carregar_embarcacions()
+        nova = pd.DataFrame([{
+            "Nom": nom, "Client_Propietari": client, "Marca_Motor": marca_motor, "Model_Motor": model_motor,
+            "Num_Motors": num_motors, "Num_Serie_Motors": num_serie_str, "Hores_Motor": hores_str, "Data_Hores": data_hores, 
+            "Historial_Hores": historial_str, "Enllacs": enllac_inicial, "Model_Barco": model_barco, "Matricula": matricula, 
+            "Port": port, "Amarre": amarre, "Claus": claus, "Comentaris": comentaris
+        }])
+        df = pd.concat([df, nova], ignore_index=True)
+        guardar_embarcacions(df)
+        
+    return redirect(url_for("embarcacions.vista_embarcacions"))
+
+@embarcacions_bp.route("/actualitzar_hores", methods=["POST"])
+def actualitzar_hores():
+    idx = int(request.form.get("csv_index"))
+    df = carregar_embarcacions()
+    num_m = int(df.at[idx, "Num_Motors"]) if str(df.at[idx, "Num_Motors"]).isdigit() else 1
+    
+    noves_hores_list = [request.form.get(f"noves_hores_{i}", "").strip() for i in range(num_m)]
+    nova_data = request.form.get("nova_data", "").strip()
+    
+    if any(noves_hores_list):
+        hores_str = ", ".join(noves_hores_list)
+        data_format = datetime.strptime(nova_data, "%Y-%m-%d").strftime("%d/%m/%Y") if nova_data else datetime.now().strftime("%d/%m/%Y")
+        nou_reg = f"[{data_format}: {hores_str} h]"
+        hist_act = df.at[idx, "Historial_Hores"]
+        df.at[idx, "Historial_Hores"] = f"{hist_act} | {nou_reg}" if hist_act else nou_reg
+        df.at[idx, "Hores_Motor"] = hores_str
+        df.at[idx, "Data_Hores"] = nova_data
+        guardar_embarcacions(df)
+        
+    return redirect(url_for("embarcacions.vista_embarcacions"))
+
+@embarcacions_bp.route("/editar_embarcacio", methods=["POST"])
+def editar_embarcacio():
+    idx = int(request.form.get("csv_index"))
+    df = carregar_embarcacions()
+    
+    if 0 <= idx < len(df):
+        marca_motor = request.form.get("marca_motor", "").strip()
+        if marca_motor == "ALTRES": 
+            marca_motor = request.form.get("marca_motor_custom", "").strip()
+            
+        model_motor = request.form.get("model_motor", "").strip()
+        if model_motor == "ALTRES": 
+            model_motor = request.form.get("model_motor_custom", "").strip()
+        
+        if marca_motor and model_motor: 
+            guardar_nou_motor_custom(marca_motor, model_motor)
+
+        num_motors = request.form.get("num_motors", "1").strip()
+        num_motors_int = int(num_motors) if num_motors.isdigit() else 1
+
+        series_list = [request.form.get(f"num_serie_{i}", "").strip() for i in range(num_motors_int)]
+        hores_list = [request.form.get(f"hores_motor_{i}", "").strip() for i in range(num_motors_int)]
+        
+        num_serie_str = ", ".join(series_list)
+        hores_str = ", ".join(hores_list)
+        
+        nova_data = request.form.get("data_hores", "").strip()
+
+        df.at[idx, "Nom"] = request.form.get("nom", "").strip()
+        df.at[idx, "Client_Propietari"] = request.form.get("client_propietari", "").strip()
+        df.at[idx, "Marca_Motor"] = marca_motor
+        df.at[idx, "Model_Motor"] = model_motor
+        df.at[idx, "Num_Motors"] = num_motors
+        df.at[idx, "Num_Serie_Motors"] = num_serie_str
+        
+        if hores_str and hores_str != df.at[idx, "Hores_Motor"]:
+            data_format = datetime.strptime(nova_data, "%Y-%m-%d").strftime("%d/%m/%Y") if nova_data else datetime.now().strftime("%d/%m/%Y")
+            nou_reg = f"[{data_format}: {hores_str} h]"
+            hist_act = df.at[idx, "Historial_Hores"]
+            df.at[idx, "Historial_Hores"] = f"{hist_act} | {nou_reg}" if hist_act else nou_reg
+            df.at[idx, "Hores_Motor"] = hores_str
+            df.at[idx, "Data_Hores"] = nova_data
+
+        df.at[idx, "Model_Barco"] = request.form.get("model_barco", "").strip()
+        df.at[idx, "Matricula"] = request.form.get("matricula", "").strip()
+        df.at[idx, "Port"] = request.form.get("port", "").strip()
+        df.at[idx, "Amarre"] = request.form.get("amarre", "").strip()
+        df.at[idx, "Claus"] = request.form.get("claus", "").strip()
+        df.at[idx, "Comentaris"] = request.form.get("comentaris", "").strip()
+        
+        guardar_embarcacions(df)
+        
+    return redirect(url_for("embarcacions.vista_embarcacions"))
+
+@embarcacions_bp.route("/eliminar_embarcacio", methods=["POST"])
+def eliminar_embarcacio():
+    idx = int(request.form.get("csv_index"))
+    df = carregar_embarcacions()
+    if 0 <= idx < len(df):
+        df = df.drop(idx).reset_index(drop=True)
+        guardar_embarcacions(df)
+    return redirect(url_for("embarcacions.vista_embarcacions"))
+
 
