@@ -21,7 +21,7 @@ def guardar_taula(df, nom_taula, fitxer_csv):
         try:
             with engine.begin() as conn:
                 df.to_sql(nom_taula, con=conn, if_exists="replace", index=False)
-            print(f"✅ Taula '{nom_taula}' guardada correctament a PostgreSQL.")
+            print(f"✅ Taula '{nom_taula}' guardada i sincronitzada correctament a PostgreSQL.")
         except Exception as e:
             print(f"❌ Error guardant la taula '{nom_taula}' a Postgres: {e}")
 
@@ -58,48 +58,44 @@ def carregar_taula(nom_taula, fitxer_csv, columnes_default):
             
     return pd.DataFrame(columns=columnes_default)
 
-# 🚀 MIGRACautomaticIÓ INICIAL: Crea les taules buides o amb el CSV si no existeixen a Postgres
-def inicialitzar_taules_si_no_existeixen():
+# 🚀 MIGRACIÓ I SINCRONITZACIÓ INICIAL (FORÇA LA CARREGA DELS CSV DE GITHUB A POSTGRES)
+def inicialitzar_i_sincronitzar_taules():
     engine = get_engine()
     if not engine:
         return
+
+    config_taules = {
+        "articles": ("data/articles.csv", ["Ref", "Ref_Interna", "Descripcio", "Stock", "Ubicacio"]),
+        "operaris": ("operaris.csv", ["Nom", "Cognoms", "Telefon", "Email", "Password", "Reset_Code", "Reset_Expiry"]),
+        "tasques": ("tasques.csv", ["Embarcació", "Titol_Tasca", "Operari", "Project_Manager", "Estat", "Data_Inici", "Data_Fi", "Prioritat", "Tasques_Detall", "Comentaris_Operari", "Hores_Imputades", "Inici_Crono", "Material_Demanat", "Material_No_Subministrat", "Notes_Text", "Data_Creacio"]),
+        "admins": ("admins.csv", ["Usuari", "Nom", "Email", "Password"]),
+        "clients": ("clients.csv", ["Nom", "Telefon", "Email"]),
+        "embarcacions": ("embarcacions.csv", ["Nom", "Model", "Client"])
+    }
 
     try:
         inspector = inspect(engine)
         taules_existents = inspector.get_table_names()
 
-        config_taules = {
-            "articles": ("data/articles.csv", ["Ref", "Ref_Interna", "Descripcio", "Stock", "Ubicacio"]),
-            "operaris": ("operaris.csv", ["Nom", "Cognoms", "Telefon", "Email", "Password", "Reset_Code", "Reset_Expiry"]),
-            "tasques": ("tasques.csv", ["Embarcació", "Titol_Tasca", "Operari", "Project_Manager", "Estat", "Data_Inici", "Data_Fi", "Prioritat", "Tasques_Detall", "Comentaris_Operari", "Hores_Imputades", "Inici_Crono", "Material_Demanat", "Material_No_Subministrat", "Notes_Text", "Data_Creacio"]),
-            "admins": ("admins.csv", ["Usuari", "Nom", "Email", "Password"]),
-            "clients": ("clients.csv", ["Nom", "Telefon", "Email"]),
-            "embarcacions": ("embarcacions.csv", ["Nom", "Model", "Client"])
-        }
-
         for nom_taula, (fitxer_csv, columnes) in config_taules.items():
-            if nom_taula not in taules_existents:
-                print(f"⚙️ Creant taula inexistent '{nom_taula}' a PostgreSQL...")
-                path = os.path.join(os.getcwd(), fitxer_csv)
+            path = os.path.join(os.getcwd(), fitxer_csv)
+            
+            # Si la taula no existeix a Postgres O si és clients/embarcacions i volem forçar la pujada del CSV nou de GitHub:
+            if nom_taula not in taules_existents or nom_taula in ["clients", "embarcacions"]:
                 if os.path.exists(path):
                     try:
                         df = pd.read_csv(path, dtype=str).fillna("")
-                    except Exception:
-                        df = pd.DataFrame(columns=columnes)
-                else:
-                    df = pd.DataFrame(columns=columnes)
-                
-                for col in columnes:
-                    if col not in df.columns:
-                        df[col] = ""
-
-                guardar_taula(df, nom_taula, fitxer_csv)
+                        if not df.empty:
+                            print(f"🔄 Sincronitzant CSV '{fitxer_csv}' a la taula de Postgres '{nom_taula}'...")
+                            guardar_taula(df, nom_taula, fitxer_csv)
+                    except Exception as e:
+                        print(f"Error llegint CSV {fitxer_csv}: {e}")
 
     except Exception as e:
-        print(f"⚠️ Error durant la inicialització de taules: {e}")
+        print(f"⚠️ Error durant la inicialització/sincronització de taules: {e}")
 
-# Executem la comprovació al carregar el mòdul
-inicialitzar_taules_si_no_existeixen()
+# Executem la sincronització al carregar el mòdul
+inicialitzar_i_sincronitzar_taules()
 
 # --- FUNCIONS ESPECÍFIQUES ---
 
