@@ -139,5 +139,3 @@ def carregar_embarcacions():
 
 def guardar_embarcacions(df):
     guardar_taula(df, "embarcacions", "embarcacions.csv")
-
-
