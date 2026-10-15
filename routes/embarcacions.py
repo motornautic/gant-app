@@ -1,6 +1,6 @@
-from flask import Blueprint, render_template, request, redirect, url_for, current_app
+from flask import Blueprint, render_template, request, redirect, url_for, current_app, send_file
 import pandas as pd
-import os, re, json
+import os, re, json, io
 from datetime import datetime
 from werkzeug.utils import secure_filename
 from routes.clients import carregar_clients
@@ -15,7 +15,7 @@ DIC_MOTORS_BASE = {
     "Caterpillar": ["3208", "C12", "C18", "C32", "C7", "C9"],
     "Cummins": ["QSB 5.9", "QSB 6.7", "QSC 8.3", "QSL 9", "QSM 11"],
     "MAN": ["V12-1550", "V12-1900", "V8-1000", "V8-1200", "i6-730"],
-    "Mercury / Mercruiser": ["350 MAG MPI", "4.3 MPI", "5.0 MPI", "5.7L", "6.2L V8", "8.2 MAG", "F115 EFI", "F150 EFI", "F200 Verado", "F300 Verado", "F350 Verado"],
+    "Mercury / Mercruiser": ["350 MAG MPI", "4.3 MPI", "5.0 MPI", "5.7L", "6.2L V8", "8.2 MAG", "F115 EFI", "F150 EFI", "F200 Verado", "F350 Verado", "F350 Verado"],
     "Suzuki": ["DF115B", "DF140B", "DF150AP", "DF200AP", "DF250AP", "DF300AP", "DF350A", "DF90A"],
     "Volvo Penta": ["D1-13", "D1-20", "D1-30", "D11-670", "D13-900", "D2-40", "D2-50", "D2-60", "D2-75", "D3-110", "D3-150", "D3-220", "D4-180", "D4-225", "D4-260", "D4-300", "D6-310", "D6-370", "D6-435", "KAD300", "KAD32", "KAD42", "KAD43", "KAD44", "TAMD41"],
     "Yanmar": ["1GM10", "2YM15", "3JH40", "3YM20", "3YM30AE", "4JH110", "4JH45", "4JH57", "4JH80", "4LHA-STP", "6CX530", "6LPA-STP", "6LY400"]
@@ -114,6 +114,56 @@ def vista_embarcacions():
             
     now_date = datetime.now().strftime("%Y-%m-%d")
     return render_template("embarcacions.html", embarcacions=llista_emb, clients_llista=sorted(llista_clients_noms), dic_motors=dic_motors, edit_idx=edit_idx, emb_edit=emb_edit, now_date=now_date)
+
+# 📊 EXPORTAR EMBARCACIONS A EXCEL
+@embarcacions_bp.route("/exportar_embarcacions_excel", methods=["GET"])
+def exportar_embarcacions_excel():
+    df = carregar_embarcacions()
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        df.to_excel(writer, index=False, sheet_name='Embarcacions')
+    output.seek(0)
+    return send_file(output, download_name="Embarcacions_MotorNautic.xlsx", as_attachment=True)
+
+# 📥 IMPORTAR EMBARCACIONS DES DE FITXER EXCEL
+@embarcacions_bp.route("/importar_embarcacions_excel", methods=["POST"])
+def importar_embarcacions_excel():
+    file = request.files.get("fitxer_excel")
+    if file and (file.filename.endswith('.xlsx') or file.filename.endswith('.xls')):
+        df_nou = pd.read_excel(file, dtype=str).fillna("")
+        df_nou = df_nou.loc[:, ~df_nou.columns.str.contains('^Unnamed')]
+        df_nou = df_nou.loc[:, ~df_nou.columns.duplicated()]
+        
+        mapa_columnes = {
+            "nom": "Nom", "embarcació": "Nom", "embarcacio": "Nom", "barco": "Nom",
+            "client": "Client_Propietari", "client_propietari": "Client_Propietari", "propietari": "Client_Propietari",
+            "marca_motor": "Marca_Motor", "marca": "Marca_Motor",
+            "model_motor": "Model_Motor", "model": "Model_Motor",
+            "num_motors": "Num_Motors", "motors": "Num_Motors",
+            "num_serie_motors": "Num_Serie_Motors", "num_serie": "Num_Serie_Motors", "serie": "Num_Serie_Motors",
+            "hores_motor": "Hores_Motor", "hores": "Hores_Motor",
+            "model_barco": "Model_Barco", "model_embarcacio": "Model_Barco",
+            "matricula": "Matricula", "port": "Port", "amarre": "Amarre", "claus": "Claus", "comentaris": "Comentaris"
+        }
+        
+        noves_col = {}
+        for col in df_nou.columns:
+            col_clean = str(col).strip().lower()
+            if col_clean in mapa_columnes:
+                noves_col[col] = mapa_columnes[col_clean]
+        
+        df_nou = df_nou.rename(columns=noves_col)
+        df_nou = df_nou.T.groupby(level=0).first().T
+        
+        df_actual = carregar_embarcacions()
+        df_actual = df_actual.loc[:, ~df_actual.columns.duplicated()]
+        
+        df_fusionat = pd.concat([df_actual, df_nou], ignore_index=True).fillna("")
+        df_fusionat = df_fusionat.loc[:, ~df_fusionat.columns.duplicated()]
+        
+        guardar_embarcacions(df_fusionat)
+        
+    return redirect(url_for("embarcacions.vista_embarcacions"))
 
 # PÀGINA INDEPENDENT DE GALERIA DE FOTOS
 @embarcacions_bp.route("/embarcacions/<int:idx>/fotos", methods=["GET"])
@@ -385,5 +435,6 @@ def eliminar_embarcacio():
         df = df.drop(idx).reset_index(drop=True)
         guardar_embarcacions(df)
     return redirect(url_for("embarcacions.vista_embarcacions"))
+
 
 
