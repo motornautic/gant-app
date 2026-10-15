@@ -1,11 +1,32 @@
 {% extends "base.html" %}
-<main class="w-full max-w-[96%] mx-auto px-2 py-6"></main>
+
 {% block content %}
-</main>
 
-
-    <div class="flex justify-between items-center mb-4">
+    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-3">
         <h2 class="text-xl font-bold text-slate-800">⛵ Gestió d'Embarcacions</h2>
+
+        <!-- 📊 BOTONS D'IMPORTAR I EXPORTAR A EXCEL -->
+        <div class="flex items-center space-x-2">
+            <a href="/exportar_embarcacions_excel" class="bg-emerald-700 hover:bg-emerald-800 text-white font-bold px-3 py-1.5 rounded-lg text-xs shadow flex items-center space-x-1 transition">
+                <span>📊 Exportar a Excel</span>
+            </a>
+
+            <button onclick="document.getElementById('formImportarExcel').classList.toggle('hidden')" class="bg-slate-700 hover:bg-slate-800 text-white font-bold px-3 py-1.5 rounded-lg text-xs shadow flex items-center space-x-1 transition cursor-pointer">
+                <span>📥 Importar Excel</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- FORMULARI DESPLEGABLE D'IMPORTAR EXCEL -->
+    <div id="formImportarExcel" class="hidden bg-emerald-50 p-4 rounded-xl border border-emerald-200 shadow-md mb-6 max-w-lg">
+        <h3 class="text-xs font-bold text-emerald-900 mb-2">📥 Importar Embarcacions des de Fitxer Excel (.xlsx)</h3>
+        <form action="/importar_embarcacions_excel" method="POST" enctype="multipart/form-data" class="flex flex-col gap-2">
+            <input type="file" name="fitxer_excel" accept=".xlsx, .xls" required class="block w-full text-xs text-slate-600 file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-emerald-600 file:text-white file:font-bold hover:file:bg-emerald-700 cursor-pointer">
+            <div class="flex justify-end space-x-2 mt-2">
+                <button type="button" onclick="document.getElementById('formImportarExcel').classList.add('hidden')" class="px-3 py-1 bg-slate-200 text-slate-700 font-bold rounded text-xs">Cancel·lar</button>
+                <button type="submit" class="px-3 py-1 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded text-xs shadow">Pujar i Carregar</button>
+            </div>
+        </form>
     </div>
 
     <!-- FORMULARI AFEGIR / EDITAR EMBARCACIÓ -->
@@ -222,14 +243,12 @@
                                     {% endfor %}
                                 </div>
 
-                                <!-- MOSTRAR LA DATA DE LA DARRERA LECTURA -->
                                 {% if e.Data_Hores %}
                                     <div class="text-[10px] text-slate-500 font-medium my-0.5">
                                        📅 Lectura: <span class="font-bold text-slate-700">{{ e.Data_Hores }}</span>
                                     </div>
                                 {% endif %}
                                                               
-                                <!-- DESPLEGABLE HISTÒRIC DE CONSULTA -->
                                 {% if e.historial_hores_llista %}
                                 <details class="text-[11px] bg-slate-100 p-1.5 rounded border mt-1">
                                     <summary class="cursor-pointer text-blue-700 font-bold">📊 Veure Històric ({{ e.historial_hores_llista|length }})</summary>
@@ -244,7 +263,6 @@
                                 {% endif %}
                             </td>
 
-                            <!-- 📸 GALERIA & DOCUMENTS -->
                             <td class="p-3 align-top text-slate-600 space-y-2">
                                 <a href="/embarcacions/{{ e.csv_index }}/fotos" class="block w-full text-center bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold p-1.5 rounded-lg border shadow-sm transition text-[11px]">
                                     🖼️ Fotos ({{ e.num_fotos }})
@@ -279,7 +297,6 @@
             {% endif %}
         </div>
     </details>
-</div>
 
 <script>
 const diccionariMotors = {{ dic_motors|tojson }};
@@ -399,3 +416,4 @@ window.onload = function() {
 };
 </script>
 {% endblock %}
+
