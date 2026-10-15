@@ -26,16 +26,17 @@ def vista_clients():
     dic_embarcacions_dades = {}
     if not df_emb.empty:
         for _, r in df_emb.iterrows():
-            nom_emb = r.get("Nom", "").strip()
+            nom_emb = str(r.get("Nom", "")).strip()
             if nom_emb:
                 dic_embarcacions_dades[nom_emb] = {
-                    "port": r.get("Port", "").strip(),
-                    "amarre": r.get("Amarre", "").strip(),
-                    "claus": r.get("Claus", "").strip()
+                    "port": str(r.get("Port", "")).strip(),
+                    "amarre": str(r.get("Amarre", "")).strip(),
+                    "claus": str(r.get("Claus", "")).strip()
                 }
                 
     llista_clients = []
     edit_idx = request.args.get("edit_idx", type=int)
+    error_nif = request.args.get("error_nif", type=bool, default=False)
     client_edit = None
     
     if not df_clients.empty:
@@ -52,7 +53,8 @@ def vista_clients():
         embarcacions=sorted(list(dic_embarcacions_dades.keys())), 
         dic_embarcacions=dic_embarcacions_dades,
         edit_idx=edit_idx, 
-        client_edit=client_edit
+        client_edit=client_edit,
+        error_nif=error_nif
     )
 
 @clients_bp.route("/afegir_client", methods=["POST"])
@@ -75,6 +77,13 @@ def afegir_client():
     
     if nom:
         df = carregar_clients()
+        
+        # 🔒 VALIDACIÓ DE NIF DUPLICAT
+        if nif and "NIF" in df.columns:
+            nif_existents = df["NIF"].dropna().astype(str).str.strip().str.upper()
+            if nif.upper() in nif_existents.values:
+                return redirect(url_for("clients.vista_clients", error_nif=True))
+
         nou_id = generar_nou_id(df)
         nou_client = pd.DataFrame([{
             "ID": nou_id,
@@ -104,14 +113,22 @@ def afegir_client():
 def editar_client():
     idx = int(request.form.get("csv_index"))
     df = carregar_clients()
+    nif = request.form.get("nif", "").strip()
     
     if 0 <= idx < len(df):
+        # 🔒 VALIDACIÓ DE NIF DUPLICAT (Excloent la fila actual)
+        if nif and "NIF" in df.columns:
+            df_altres = df.drop(idx)
+            nif_existents = df_altres["NIF"].dropna().astype(str).str.strip().str.upper()
+            if nif.upper() in nif_existents.values:
+                return redirect(url_for("clients.vista_clients", edit_idx=idx, error_nif=True))
+
         carrer = request.form.get("carrer", "").strip()
         df.at[idx, "Tipus"] = request.form.get("tipus", "Particular")
         df.at[idx, "Nom"] = request.form.get("nom", "").strip()
         df.at[idx, "Cognoms"] = request.form.get("cognoms", "").strip()
         df.at[idx, "Persona_Contacte"] = request.form.get("persona_contacte", "").strip()
-        df.at[idx, "NIF"] = request.form.get("nif", "").strip()
+        df.at[idx, "NIF"] = nif
         df.at[idx, "Telèfon"] = request.form.get("telefon", "").strip()
         df.at[idx, "Email"] = request.form.get("email", "").strip()
         df.at[idx, "Carrer"] = carrer
@@ -188,4 +205,3 @@ def importar_clients_excel():
         guardar_clients(df_fusionat)
         
     return redirect(url_for("clients.vista_clients"))
-
