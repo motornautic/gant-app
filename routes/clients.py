@@ -171,13 +171,16 @@ def importar_clients_excel():
         df_nou = df_nou.loc[:, ~df_nou.columns.str.contains('^Unnamed')]
         df_nou = df_nou.loc[:, ~df_nou.columns.duplicated()]
         
+        # Mapa de columnes flexible
         mapa_columnes = {
+            "id": "ID", "codi": "ID", "id_client": "ID", "id client": "ID",
             "població": "Poblacio", "poblacio": "Poblacio", "poblacio/ciutat": "Poblacio", "ciutat": "Poblacio",
             "codi postal": "CP", "codi_postal": "CP", "cp": "CP", "zip": "CP",
             "email": "Email", "e-mail": "Email", "correu": "Email", "correu electronic": "Email", "correu electrònic": "Email",
             "carrer": "Carrer", "adreça": "Carrer", "adreca": "Carrer",
             "telèfon": "Telèfon", "telefon": "Telèfon", "nif": "NIF", "cif": "NIF", "dni": "NIF", "nif/cif": "NIF",
-            "embarcació": "Embarcació", "embarcacio": "Embarcació", "barco": "Embarcació"
+            "embarcació": "Embarcació", "embarcacio": "Embarcació", "barco": "Embarcació",
+            "nom": "Nom", "cognoms": "Cognoms", "port": "Port", "amarre": "Amarre", "claus": "Claus", "comentaris": "Comentaris"
         }
         
         noves_col = {}
@@ -187,21 +190,52 @@ def importar_clients_excel():
                 noves_col[col] = mapa_columnes[col_clean]
         
         df_nou = df_nou.rename(columns=noves_col)
-        df_nou = df_nou.T.groupby(level=0).first().T
         
+        # Carreguem el DataFrame actual de clients
         df_actual = carregar_clients()
-        df_actual = df_actual.loc[:, ~df_actual.columns.duplicated()]
+        if df_actual.empty:
+            df_actual = pd.DataFrame(columns=["ID", "Tipus", "Nom", "Cognoms", "Persona_Contacte", "NIF", "Telèfon", "Email", "Carrer", "Adreça", "CP", "Poblacio", "Embarcació", "Port", "Amarre", "Claus", "Comentaris"])
         
-        df_fusionat = pd.concat([df_actual, df_nou], ignore_index=True).fillna("")
-        df_fusionat = df_fusionat.loc[:, ~df_fusionat.columns.duplicated()]
-        
-        if "Carrer" in df_fusionat.columns:
-            df_fusionat["Adreça"] = df_fusionat["Carrer"]
+        # Recorrem les files de l'Excel a importar
+        for _, fila_importada in df_nou.iterrows():
+            id_imp = str(fila_importada.get("ID", "")).strip()
+            nif_imp = str(fila_importada.get("NIF", "")).strip().upper()
             
-        for idx in range(len(df_fusionat)):
-            if "ID" not in df_fusionat.columns or not df_fusionat.at[idx, "ID"]:
-                df_fusionat.at[idx, "ID"] = f"CLI-{(idx + 1):03d}"
-                
-        guardar_clients(df_fusionat)
+            # Cercar si el client ja existeix (primer per ID, desprès per NIF)
+            coincidencia_idx = None
+            
+            if id_imp and "ID" in df_actual.columns:
+                matches = df_actual[df_actual["ID"].astype(str).str.strip() == id_imp]
+                if not matches.empty:
+                    coincidencia_idx = matches.index[0]
+            
+            if coincidencia_idx is None and nif_imp and "NIF" in df_actual.columns:
+                matches = df_actual[df_actual["NIF"].astype(str).str.strip().str.upper() == nif_imp]
+                if not matches.empty:
+                    coincidencia_idx = matches.index[0]
+            
+            # CAS 1: El client JA EXISTEIX -> Només actualitzem/omplim les dades que falten
+            if coincidencia_idx is not None:
+                for col in fila_importada.index:
+                    valor_nou = str(fila_importada[col]).strip()
+                    # Actualitzem si a l'Excel ve un valor no buit
+                    if valor_nou:
+                        df_actual.at[coincidencia_idx, col] = valor_nou
+                        if col == "Carrer":
+                            df_actual.at[coincidencia_idx, "Adreça"] = valor_nou
+
+            # CAS 2: El client NO EXISTEIX -> L'afegim com a nou registrat
+            else:
+                if str(fila_importada.get("Nom", "")).strip() or nif_imp:
+                    nou_row = fila_importada.to_dict()
+                    if not nou_row.get("ID"):
+                        nou_row["ID"] = generar_nou_id(df_actual)
+                    if nou_row.get("Carrer") and not nou_row.get("Adreça"):
+                        nou_row["Adreça"] = nou_row["Carrer"]
+                    
+                    df_actual = pd.concat([df_actual, pd.DataFrame([nou_row])], ignore_index=True)
+
+        guardar_clients(df_actual)
         
     return redirect(url_for("clients.vista_clients"))
+
