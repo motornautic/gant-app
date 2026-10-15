@@ -6,18 +6,18 @@ from db import carregar_tasques, guardar_tasques, carregar_operaris
 gantt_bp = Blueprint('gantt', __name__)
 
 PALETA_COLORS_FIXES = {
-    "AMIN": "#3b82f6",       # Blau
-    "ARMANDO": "#10b981",    # Verd esmeralda
-    "BRETT": "#f59e0b",      # Taronja càlid
-    "DALMAU": "#8b5cf6",     # Lila
-    "DANI": "#15803d",       # Verd fosc
-    "ERIC": "#06b6d4",       # Cjan / Blau cel
-    "LEO": "#f97316",        # Taronja fort
-    "MARC": "#64748b",       # Gris
-    "ORIOL": "#2563eb",      # Blau intens
-    "RAUL": "#059669",       # Verd
-    "SOLA": "#e11d48",       # Vermell carmesí
-    "TONI": "#a855f7"        # Púrpura
+    "AMIN": "#3b82f6",
+    "ARMANDO": "#10b981",
+    "BRETT": "#f59e0b",
+    "DALMAU": "#8b5cf6",
+    "DANI": "#15803d",
+    "ERIC": "#06b6d4",
+    "LEO": "#f97316",
+    "MARC": "#64748b",
+    "ORIOL": "#2563eb",
+    "RAUL": "#059669",
+    "SOLA": "#e11d48",
+    "TONI": "#a855f7"
 }
 
 COLORS_RESERVA = [
@@ -29,7 +29,6 @@ def vista_gantt():
     df = carregar_tasques()
     operaris = carregar_operaris()
     
-    # Assignar color a cada operari
     mapa_colors = {}
     for idx, op in enumerate(operaris):
         op_key = op.strip().upper()
@@ -38,14 +37,10 @@ def vista_gantt():
         else:
             mapa_colors[op] = COLORS_RESERVA[idx % len(COLORS_RESERVA)]
             
-    # Color negre per a "Sense assignar"
     mapa_colors["Sense assignar"] = "#000000"
 
     tasques_gantt = []
     avui_dt = datetime.now()
-    avui_str = avui_dt.strftime("%Y-%m-%d")
-    dema_str = (avui_dt + timedelta(days=1)).strftime("%Y-%m-%d")
-
     limit_7_dies_enrere = (avui_dt - timedelta(days=7)).date()
 
     if not df.empty:
@@ -55,13 +50,11 @@ def vista_gantt():
             estat = str(row.get("Estat", "Pendent")).strip()
             arxivada = str(row.get("Arxivada", "")).strip().lower()
 
-            # 🚫 OMETRE TASQUES ARXIVADES O EN ESTAT PRESSUPOST
+            # 🚫 OMETRE ARXIVADES I PRESSUPOST
             if estat.lower() in ["arxivada", "pressupost"] or arxivada in ["true", "1", "si", "sí"]:
                 continue
 
             data_inici = str(row.get("Data_Inici", "")).strip()
-            
-            # 🚫 OMETRE TASQUES SENSE DATA D'INICI (NO HAN D'APARÈIXER AL GANTT)
             if not data_inici or data_inici.lower() in ["nan", "none"]:
                 continue
 
@@ -70,7 +63,7 @@ def vista_gantt():
             try: 
                 dt_inici = datetime.strptime(data_inici, "%Y-%m-%d").date()
             except: 
-                continue  # Si la data no té format vàlid, tampoc es mostra
+                continue
             
             try: 
                 dt_fi = datetime.strptime(data_fi, "%Y-%m-%d").date()
