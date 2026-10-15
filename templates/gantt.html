@@ -43,9 +43,9 @@
         </div>
     </div>
 
-    <!-- UN SOL CONTENIDOR AMB SCROLL HORITZONTAL UNIFICAT -->
-    <div class="bg-white p-4 rounded-xl shadow border overflow-x-auto w-full cursor-grab select-none min-h-[400px]" id="gantt-container">
-        <svg id="gantt" class="overflow-visible block"></svg>
+    <!-- CONTENIDOR DEL DIAGRAMA GANTT AMB SCROLL HORITZONTAL ACTIU -->
+    <div class="bg-white p-4 rounded-xl shadow border overflow-x-auto w-full cursor-grab select-none" id="gantt-container">
+        <svg id="gantt"></svg>
     </div>
 
 </div>
@@ -63,12 +63,12 @@
             <p id="modalNomTasca" class="text-blue-700 font-bold text-xs"></p>
         </div>
 
-        <!-- DESPLEGABLE D'OPERARI(S) TOTES LES OPCIONS -->
+        <!-- LISTA DE CHECKBOXES D'OPERARIS PER PERMETRE SELECCIÓ MÚLTIPLE -->
         <div>
-            <label class="block text-[11px] font-bold text-slate-600 mb-1">👷 Assignar Operari:</label>
-            <select id="modalSelectOperari" class="w-full p-2.5 text-xs border rounded-lg bg-slate-50 focus:bg-white focus:ring-2 focus:ring-blue-500 font-bold text-slate-800 shadow-sm cursor-pointer">
-            </select>
-            <p class="text-[10px] text-slate-400 mt-1">* Si vols assignar diversos operaris (p. ex: DALMAU, ERIC), pots editar-ho des del formulari detallat de la tasca.</p>
+            <label class="block text-[11px] font-bold text-slate-600 mb-1">👷 Assignar Operari(s):</label>
+            <div id="modalContenidorCheckboxesOperaris" class="max-h-36 overflow-y-auto p-2.5 border rounded-lg bg-slate-50 grid grid-cols-2 gap-2 text-xs font-bold text-slate-800 shadow-inner">
+                <!-- Es generaran dinàmicament des de JavaScript -->
+            </div>
         </div>
 
         <!-- SELECTORS DE CALENDARI -->
@@ -97,12 +97,13 @@
 <style id="gantt-dynamic-styles">
     #gantt-container {
         overflow-x: auto !important;
-        overflow-y: hidden !important;
+        white-space: nowrap !important;
     }
 
     #gantt {
         display: block !important;
-        width: max-content !important;
+        width: auto !important;
+        min-width: max-content !important;
     }
 
     .gantt .grid-header {
@@ -173,11 +174,11 @@
     function inicialitzarControfiltres() {
         const setBarcos = new Set();
         const datalist = document.getElementById("llista_barcos_gantt");
-        const selectOpPopup = document.getElementById("modalSelectOperari");
+        const contenidorOpModal = document.getElementById("modalContenidorCheckboxesOperaris");
         const contenidorOp = document.getElementById("contenidor-operaris-filtre");
 
         datalist.innerHTML = "";
-        selectOpPopup.innerHTML = "";
+        contenidorOpModal.innerHTML = "";
         contenidorOp.innerHTML = "";
 
         rawTasks.forEach(t => {
@@ -199,11 +200,18 @@
             return a.localeCompare(b);
         });
 
+        // Poblar els Checkboxes del Pop-Up amb TOTS els operaris
         llistaOperaris.forEach(op => {
-            const optPop = document.createElement("option");
-            optPop.value = op;
-            optPop.textContent = op;
-            selectOpPopup.appendChild(optPop);
+            if (op !== "Sense assignar") {
+                const label = document.createElement("label");
+                label.className = "flex items-center space-x-1.5 cursor-pointer hover:bg-slate-100 p-1 rounded transition";
+                label.innerHTML = `
+                    <input type="checkbox" value="${op}" class="chk-modal-operari rounded border-slate-300 text-blue-600 focus:ring-blue-500">
+                    <span class="w-2.5 h-2.5 rounded-full inline-block flex-shrink-0" style="background-color: ${mapaColors[op]};"></span>
+                    <span class="truncate">${op}</span>
+                `;
+                contenidorOpModal.appendChild(label);
+            }
 
             const color = mapaColors[op];
             const btn = document.createElement("button");
@@ -291,8 +299,8 @@
         });
 
         document.getElementById("gantt-dynamic-styles").innerHTML = `
-            #gantt-container { overflow-x: auto !important; overflow-y: hidden !important; }
-            #gantt { display: block !important; width: max-content !important; }
+            #gantt-container { overflow-x: auto !important; white-space: nowrap !important; }
+            #gantt { display: block !important; width: auto !important; min-width: max-content !important; }
             .gantt .grid-header { stroke: #64748b !important; stroke-width: 1.5px !important; fill: #ffffff !important; }
             .gantt .grid-row { stroke: #e2e8f0 !important; stroke-width: 1px !important; fill: transparent !important; }
             .gantt .tick { stroke: #cbd5e1 !important; stroke-width: 1.5px !important; }
@@ -397,13 +405,11 @@
 
         document.getElementById("modalNomTasca").innerText = taskObj.name;
         
-        const selectOp = document.getElementById("modalSelectOperari");
-        if (selectOp) {
-            selectOp.value = opActual;
-            if (!selectOp.value) {
-                selectOp.value = opActual.split(",")[0].trim();
-            }
-        }
+        // Marcar als checkboxes els operaris que té actualment la tasca
+        const llistaAssignats = opActual.split(",").map(s => s.trim().toUpperCase());
+        document.querySelectorAll(".chk-modal-operari").forEach(chk => {
+            chk.checked = llistaAssignats.includes(chk.value.trim().toUpperCase());
+        });
 
         document.getElementById("modalInputStart").value = startStr;
         document.getElementById("modalInputEnd").value = endStr;
@@ -416,7 +422,14 @@
 
         const novaStart = document.getElementById("modalInputStart").value;
         const novaEnd = document.getElementById("modalInputEnd").value;
-        const nouOperari = document.getElementById("modalSelectOperari").value;
+        
+        // Recollir tots els operaris seleccionats a les caselles de verificació
+        const operarisTriats = [];
+        document.querySelectorAll(".chk-modal-operari:checked").forEach(chk => {
+            operarisTriats.push(chk.value);
+        });
+
+        const nouOperariStr = operarisTriats.length > 0 ? operarisTriats.join(", ") : "Sense assignar";
 
         if (!novaStart || !novaEnd) {
             alert("Si us plau, selecciona dates vàlides.");
@@ -427,7 +440,7 @@
             id: canviPendent.id,
             start: novaStart,
             end: novaEnd,
-            operari: nouOperari
+            operari: nouOperariStr
         };
 
         fetch('/actualitzar_dates_gantt', {
