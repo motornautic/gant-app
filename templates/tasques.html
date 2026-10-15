@@ -34,11 +34,26 @@
     </div>
 </div>
 
-<!-- 👷 GESTIÓ D'OPERARIS (NOMÉS ADMINISTRACIÓ) -->
-<div class="mb-4">
-    <button onclick="document.getElementById('modal-gestio-operaris').classList.toggle('hidden')" class="bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold px-3 py-2 rounded-lg shadow flex items-center space-x-1.5">
+<!-- 🔍 BARRA DE CERCA I GESTIÓ D'OPERARIS -->
+<div class="mb-4 flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-between">
+    <button onclick="document.getElementById('modal-gestio-operaris').classList.toggle('hidden')" class="bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold px-3 py-2 rounded-lg shadow flex items-center space-x-1.5 self-start md:self-auto">
         <span>👷 Gestió d'Operaris</span>
     </button>
+
+    <!-- 🔍 CERCADOR EN TEMPS REAL -->
+    <div class="relative flex-1 max-w-md">
+        <span class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-400 text-xs">
+            🔍
+        </span>
+        <input type="text" 
+               id="inputCercadorTasques" 
+               onkeyup="filtrarTasquesPerCerca()" 
+               placeholder="Cerca per barco, tasca, operari o detall..." 
+               class="w-full pl-9 pr-8 py-2 border rounded-lg text-xs bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none font-medium shadow-sm">
+        <button onclick="netejarCercador()" id="btnNetejarCerca" class="hidden absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 text-xs font-bold">
+            ❌
+        </button>
+    </div>
 </div>
 
 <!-- MODAL DESPLEGABLE DE GESTIÓ D'OPERARIS -->
@@ -84,12 +99,6 @@
                 </select>
             </div>
 
-            <!-- 👔 CAMP PROJECT MANAGER / RESPONSABLE -->
-            <div class="lg:col-span-2">
-                <label class="block text-xs font-bold mb-1">👔 Project Manager / Responsable</label>
-                <input type="text" name="project_manager" placeholder="Ex: MARC / XAVI" class="w-full p-2 border rounded text-xs bg-slate-50 font-semibold">
-            </div>
-
             <div>
                 <label class="block text-xs font-bold mb-1">📅 Data Inici</label>
                 <input type="date" name="data_inici" class="w-full p-2 border rounded text-xs bg-slate-50 font-semibold">
@@ -100,8 +109,8 @@
                 <input type="date" name="data_fi" class="w-full p-2 border rounded text-xs bg-slate-50 font-semibold">
             </div>
 
-            <!-- 👷 DESPLEGABLE D'OPERARIS -->
-            <div class="lg:col-span-2">
+            <!-- 👷 DESPLEGABLE D'OPERARIS MILLORAT (SENSE SCROLL) -->
+            <div class="lg:col-span-3">
                 <label class="block text-xs font-bold mb-1">Operaris Assignats</label>
                 <select name="operaris" id="selectOperarisCrear" multiple placeholder="Cerca o selecciona operaris..." class="w-full p-2 border rounded text-xs bg-slate-50 font-semibold">
                     {% for op in operaris %}
@@ -110,7 +119,7 @@
                 </select>
             </div>
 
-            <div class="lg:col-span-2">
+            <div class="lg:col-span-3">
                 <label class="block text-xs font-bold mb-1">Prioritat / Estat Inicial</label>
                 <div class="grid grid-cols-2 gap-2">
                     <select name="prioritat" class="w-full p-2 border rounded text-xs bg-slate-50 font-bold">
@@ -163,180 +172,162 @@
                 {% elif estat == 'Finalitzada' %}✅{% endif %}
                 {{ estat }}
             </span>
-            <span class="bg-white/80 text-slate-800 px-2 py-0.5 rounded-full text-[10px]">
+            <span class="bg-white/80 text-slate-800 px-2 py-0.5 rounded-full text-[10px] comptador-columna">
                 {{ tasques_estat|length }}
             </span>
         </div>
 
-        <div class="space-y-3 flex-1 overflow-y-auto">
-            {% if tasques_estat %}
-                {% for t in tasques_estat %}
-                {% set es_sense_data = not t.Data_Inici and estat == 'Pendent' %}
+        <div class="space-y-3 flex-1 overflow-y-auto contenidor-targetes">
+            {% for t in tasques_estat %}
+            {% set es_sense_data = not t.Data_Inici and estat == 'Pendent' %}
+            
+            <!-- TARGETA DE TASCA -->
+            <div class="targeta-tasca bg-white p-3 rounded-lg shadow-sm border-l-4 transition relative 
+                {% if es_sense_data %}ring-2 ring-amber-400 border-dashed border-amber-500 bg-amber-50/20{% elif t.Prioritat == 'Urgent' %}border-2 border-red-500 bg-red-50/30 shadow-red-100{% else %}{{ border_color }}{% endif %}"
+                data-text-cerca="{{ t.Embarcació }} {{ t.Titol_Tasca }} {{ t.Tasques_Detall }} {{ t.Operari }}">
                 
-                <!-- TARGETA DE TASCA -->
-                <div class="bg-white p-3 rounded-lg shadow-sm border-l-4 transition relative 
-                    {% if es_sense_data %}ring-2 ring-amber-400 border-dashed border-amber-500 bg-amber-50/20{% elif t.Prioritat == 'Urgent' %}border-2 border-red-500 bg-red-50/30 shadow-red-100{% else %}{{ border_color }}{% endif %}">
+                <div class="flex justify-between items-start mb-1 gap-1">
+                    <span class="font-bold text-blue-900 text-xs truncate max-w-[130px]">⛵ {{ t.Embarcació }}</span>
                     
-                    <div class="flex justify-between items-start mb-1 gap-1">
-                        <span class="font-bold text-blue-900 text-xs truncate max-w-[130px]">⛵ {{ t.Embarcació }}</span>
-                        
-                        <div class="flex items-center space-x-1">
-                            {% if t.Prioritat == 'Urgent' %}
-                                <span class="bg-red-600 text-white font-bold px-1.5 py-0.5 rounded-full text-[9px] shadow animate-pulse flex items-center space-x-1">
-                                    <span class="w-1.5 h-1.5 rounded-full bg-white inline-block"></span>
-                                    <span>🔴 URGENT</span>
-                                </span>
-                            {% endif %}
-
-                            <a href="/tasques?edit_idx={{ t.csv_index }}" class="p-1 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded transition text-xs font-bold" title="Editar Tasca">
-                                ✏️
-                            </a>
-                        </div>
-                    </div>
-
-                    <h4 class="font-bold text-slate-800 text-xs mb-1">{{ t.Titol_Tasca }}</h4>
-
-                    <!-- ⏱️ INSÍGNIA DE CRONÒMETRE ACTIU PER A L'ADMINISTRADOR -->
-                    {% if t.operaris_cronos_actius %}
-                    <div class="my-2 bg-emerald-100 border border-emerald-400 text-emerald-900 px-2 py-1 rounded-lg text-xs font-bold flex items-center justify-between shadow-sm animate-pulse">
-                        <span class="flex items-center space-x-1">
-                            <span class="text-sm">⏱️</span>
-                            <span>TREBALLANT ARA:</span>
-                        </span>
-                        <span class="bg-emerald-600 text-white px-2 py-0.5 rounded text-[10px] uppercase font-black tracking-wide">
-                            {{ t.operaris_cronos_actius|join(', ') }}
-                        </span>
-                    </div>
-                    {% endif %}
-
-                    {% if t.Tasques_Detall %}
-                        <p class="text-[11px] text-slate-600 mb-2 line-clamp-2">{{ t.Tasques_Detall }}</p>
-                    {% endif %}
-
-                    <!-- BLOC D'INFORMACIÓ I DATES FORMATADES -->
-                    <div class="text-[10px] text-slate-500 space-y-1 border-t pt-1.5 mb-2">
-                        {% if t.Project_Manager %}
-                        <div>👔 PM: <strong class="text-purple-900 font-bold">{{ t.Project_Manager }}</strong></div>
+                    <div class="flex items-center space-x-1">
+                        {% if t.Prioritat == 'Urgent' %}
+                            <span class="bg-red-600 text-white font-bold px-1.5 py-0.5 rounded-full text-[9px] shadow animate-pulse flex items-center space-x-1">
+                                <span class="w-1.5 h-1.5 rounded-full bg-white inline-block"></span>
+                                <span>🔴 URGENT</span>
+                            </span>
                         {% endif %}
 
-                        <div>👨‍🔧 Operari: <strong class="text-slate-700">{{ t.Operari if t.Operari else 'Sense Assignar' }}</strong></div>
-                        
-                        {% if t.Data_Creacio %}
-                        <div>
-                            <span>📝 Creada el:</span>
-                            {% set c_parts = t.Data_Creacio.split('-') %}
-                            {% if c_parts|length == 3 %}
-                                <strong class="text-slate-600 font-semibold">{{ c_parts[2] }}/{{ c_parts[1] }}/{{ c_parts[0] }}</strong>
-                            {% else %}
-                                <strong class="text-slate-600 font-semibold">{{ t.Data_Creacio }}</strong>
-                            {% endif %}
-                        </div>
-                        {% endif %}
-
-                        <div class="flex items-center space-x-1">
-                            <span>📅 Data Inici:</span>
-                            {% if t.Data_Inici %}
-                                {% set d_parts = t.Data_Inici.split('-') %}
-                                {% if d_parts|length == 3 %}
-                                    <strong class="text-slate-800 bg-slate-100 px-1 py-0.5 rounded border text-[10px]">
-                                        {{ d_parts[2] }}/{{ d_parts[1] }}/{{ d_parts[0] }}
-                                    </strong>
-                                {% else %}
-                                    <strong class="text-slate-800 bg-slate-100 px-1 py-0.5 rounded border text-[10px]">
-                                        {{ t.Data_Inici }}
-                                    </strong>
-                                {% endif %}
-                            {% else %}
-                                <span class="text-amber-700 font-bold bg-amber-100 px-1.5 py-0.5 rounded border border-amber-300 text-[9px] flex items-center space-x-1">
-                                    <span>⚠️ Sense data (no surt al Gantt)</span>
-                                </span>
-                            {% endif %}
-                        </div>
-
-                        {% if t.hores_formatted %}
-                        <div>⏱️ Temps: <strong class="text-blue-900">{{ t.hores_formatted }}</strong></div>
-                        {% endif %}
-                    </div>
-
-                    <!-- ⚠️ BLOC DE MATERIAL NO SUBMINISTRAT -->
-                    {% if t.Material_No_Subministrat %}
-                    <div class="mb-2 bg-red-50 p-2 rounded-lg border border-red-200">
-                        <span class="text-[10px] font-bold text-red-800 flex items-center gap-1 mb-1">
-                            <span>⚠️ Mat. No Subministrat</span>
-                        </span>
-                        <div class="text-[10px] font-mono text-slate-700 bg-white p-1.5 rounded border border-red-200 whitespace-pre-line max-h-20 overflow-y-auto">
-                            {{ t.Material_No_Subministrat }}
-                        </div>
-                    </div>
-                    {% endif %}
-
-                    <!-- ACCIÓ I CHECK PER A PRESSUPOSTOS -->
-                    {% if estat == 'Pressupost' %}
-                    <div class="mb-2 space-y-1.5 bg-purple-50 p-2 rounded border border-purple-200">
-                        <form action="/toggle_pressupost_enviat" method="POST" class="flex items-center space-x-2">
-                            <input type="hidden" name="csv_index" value="{{ t.csv_index }}">
-                            <input type="checkbox" 
-                                   id="chk_env_{{ t.csv_index }}" 
-                                   onchange="this.form.submit()" 
-                                   {% if t.Pressupost_Enviat == '1' %}checked{% endif %}
-                                   class="w-4 h-4 text-purple-600 rounded border-slate-300 focus:ring-purple-500 cursor-pointer">
-                            <label for="chk_env_{{ t.csv_index }}" class="text-[11px] font-bold cursor-pointer select-none {% if t.Pressupost_Enviat == '1' %}text-emerald-700{% else %}text-slate-600{% endif %}">
-                                {% if t.Pressupost_Enviat == '1' %}
-                                    📩 Pressupost Enviat
-                                {% else %}
-                                    📤 Marcar com a Enviat
-                                {% endif %}
-                            </label>
-                        </form>
-
-                        <form action="/aprovar_pressupost" method="POST">
-                            <input type="hidden" name="csv_index" value="{{ t.csv_index }}">
-                            <button type="submit" onclick="return confirm('Aprovar aquest pressupost i passar la tasca a Pendents?');" class="w-full bg-purple-700 hover:bg-purple-800 text-white font-bold py-1.5 px-2 rounded text-[10px] shadow flex items-center justify-center space-x-1">
-                                <span>✅ Validar Pressupost ➔ Pendents</span>
-                            </button>
-                        </form>
-                    </div>
-                    {% endif %}
-
-                    <div class="flex justify-between items-center border-t pt-2 mt-1 gap-1">
-                        <a href="/tasques?view_idx={{ t.csv_index }}" class="bg-blue-100 hover:bg-blue-200 text-blue-800 text-[10px] px-2 py-1 rounded font-bold flex items-center space-x-1 shadow-sm" title="Veure Resum Unificat">
-                            <span>👁️</span>
-                            <span>Vista</span>
+                        <a href="/tasques?edit_idx={{ t.csv_index }}" class="p-1 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded transition text-xs font-bold" title="Editar Tasca">
+                            ✏️
                         </a>
-
-                        <form action="/canviar_estat_tasca" method="POST" class="flex-1">
-                            <input type="hidden" name="csv_index" value="{{ t.csv_index }}">
-                            <select name="nou_estat" onchange="this.form.submit()" class="w-full p-1 text-[10px] border rounded bg-slate-50 font-bold text-slate-700">
-                                <option value="Pressupost" {% if estat == 'Pressupost' %}selected{% endif %}>💶 Pressupost</option>
-                                <option value="Pendent" {% if estat == 'Pendent' %}selected{% endif %}>⏳ Pendent</option>
-                                <option value="En Curs" {% if estat == 'En Curs' %}selected{% endif %}>🔧 En Curs</option>
-                                <option value="Esperant Recanvi" {% if estat == 'Esperant Recanvi' %}selected{% endif %}>📦 Recanvi</option>
-                                <option value="Finalitzada" {% if estat == 'Finalitzada' %}selected{% endif %}>✅ Acabat</option>
-                            </select>
-                        </form>
-
-                        {% if t.Estat == 'Finalitzada' %}
-                        <form action="/arxivar_tasca" method="POST" class="inline">
-                            <input type="hidden" name="csv_index" value="{{ t.csv_index }}">
-                            <input type="hidden" name="redirect_to" value="tasques">
-                            <button type="submit" onclick="return confirm('Vols enviar aquesta tasca a l\'Arxiu?');" class="bg-slate-700 hover:bg-slate-800 text-white font-bold p-1 rounded text-[10px] shadow" title="Arxivar Tasca">
-                                📥
-                            </button>
-                        </form>
-                        {% endif %}
-                        
-                        <form action="/eliminar_tasca" method="POST" onsubmit="return confirm('Segur que vols eliminar aquesta tasca?');">
-                            <input type="hidden" name="csv_index" value="{{ t.csv_index }}">
-                            <button type="submit" class="text-slate-400 hover:text-red-600 p-1 rounded" title="Eliminar Tasca">🗑️</button>
-                        </form>
                     </div>
                 </div>
-                {% endfor %}
-            {% else %}
-                <div class="p-4 text-center text-slate-400 text-[11px] border border-dashed rounded-lg">
-                    Sense tasques
+
+                <h4 class="font-bold text-slate-800 text-xs mb-1">{{ t.Titol_Tasca }}</h4>
+                
+                {% if t.Tasques_Detall %}
+                    <p class="text-[11px] text-slate-600 mb-2 line-clamp-2">{{ t.Tasques_Detall }}</p>
+                {% endif %}
+
+                <!-- BLOC D'INFORMACIÓ I DATES FORMATADES -->
+                <div class="text-[10px] text-slate-500 space-y-1 border-t pt-1.5 mb-2">
+                    <div>👨‍🔧 Operari: <strong class="text-slate-700">{{ t.Operari if t.Operari else 'Sense Assignar' }}</strong></div>
+                    
+                    {% if t.Data_Creacio %}
+                    <div>
+                        <span>📝 Creada el:</span>
+                        {% set c_parts = t.Data_Creacio.split('-') %}
+                        {% if c_parts|length == 3 %}
+                            <strong class="text-slate-600 font-semibold">{{ c_parts[2] }}/{{ c_parts[1] }}/{{ c_parts[0] }}</strong>
+                        {% else %}
+                            <strong class="text-slate-600 font-semibold">{{ t.Data_Creacio }}</strong>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+
+                    <div class="flex items-center space-x-1">
+                        <span>📅 Data Inici:</span>
+                        {% if t.Data_Inici %}
+                            {% set d_parts = t.Data_Inici.split('-') %}
+                            {% if d_parts|length == 3 %}
+                                <strong class="text-slate-800 bg-slate-100 px-1 py-0.5 rounded border text-[10px]">
+                                    {{ d_parts[2] }}/{{ d_parts[1] }}/{{ d_parts[0] }}
+                                </strong>
+                            {% else %}
+                                <strong class="text-slate-800 bg-slate-100 px-1 py-0.5 rounded border text-[10px]">
+                                    {{ t.Data_Inici }}
+                                </strong>
+                            {% endif %}
+                        {% else %}
+                            <span class="text-amber-700 font-bold bg-amber-100 px-1.5 py-0.5 rounded border border-amber-300 text-[9px] flex items-center space-x-1">
+                                <span>⚠️ Sense data (no surt al Gantt)</span>
+                            </span>
+                        {% endif %}
+                    </div>
+
+                    {% if t.hores_formatted %}
+                    <div>⏱️ Temps: <strong class="text-blue-900">{{ t.hores_formatted }}</strong></div>
+                    {% endif %}
                 </div>
-            {% endif %}
+
+                <!-- ⚠️ BLOC DE MATERIAL NO SUBMINISTRAT (MÒBIL OPERARI) -->
+                {% if t.Material_No_Subministrat %}
+                <div class="mb-2 bg-red-50 p-2 rounded-lg border border-red-200">
+                    <span class="text-[10px] font-bold text-red-800 flex items-center gap-1 mb-1">
+                        <span>⚠️ Mat. No Subministrat</span>
+                    </span>
+                    <div class="text-[10px] font-mono text-slate-700 bg-white p-1.5 rounded border border-red-200 whitespace-pre-line max-h-20 overflow-y-auto">
+                        {{ t.Material_No_Subministrat }}
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- ACCIÓ I CHECK PER A PRESSUPOSTOS -->
+                {% if estat == 'Pressupost' %}
+                <div class="mb-2 space-y-1.5 bg-purple-50 p-2 rounded border border-purple-200">
+                    <form action="/toggle_pressupost_enviat" method="POST" class="flex items-center space-x-2">
+                        <input type="hidden" name="csv_index" value="{{ t.csv_index }}">
+                        <input type="checkbox" 
+                               id="chk_env_{{ t.csv_index }}" 
+                               onchange="this.form.submit()" 
+                               {% if t.Pressupost_Enviat == '1' %}checked{% endif %}
+                               class="w-4 h-4 text-purple-600 rounded border-slate-300 focus:ring-purple-500 cursor-pointer">
+                        <label for="chk_env_{{ t.csv_index }}" class="text-[11px] font-bold cursor-pointer select-none {% if t.Pressupost_Enviat == '1' %}text-emerald-700{% else %}text-slate-600{% endif %}">
+                            {% if t.Pressupost_Enviat == '1' %}
+                                📩 Pressupost Enviat
+                            {% else %}
+                                📤 Marcar com a Enviat
+                            {% endif %}
+                        </label>
+                    </form>
+
+                    <form action="/aprovar_pressupost" method="POST">
+                        <input type="hidden" name="csv_index" value="{{ t.csv_index }}">
+                        <button type="submit" onclick="return confirm('Aprovar aquest pressupost i passar la tasca a Pendents?');" class="w-full bg-purple-700 hover:bg-purple-800 text-white font-bold py-1.5 px-2 rounded text-[10px] shadow flex items-center justify-center space-x-1">
+                            <span>✅ Validar Pressupost ➔ Pendents</span>
+                        </button>
+                    </form>
+                </div>
+                {% endif %}
+
+                <div class="flex justify-between items-center border-t pt-2 mt-1 gap-1">
+                    <a href="/tasques?view_idx={{ t.csv_index }}" class="bg-blue-100 hover:bg-blue-200 text-blue-800 text-[10px] px-2 py-1 rounded font-bold flex items-center space-x-1 shadow-sm" title="Veure Resum Unificat">
+                        <span>👁️</span>
+                        <span>Vista</span>
+                    </a>
+
+                    <form action="/canviar_estat_tasca" method="POST" class="flex-1">
+                        <input type="hidden" name="csv_index" value="{{ t.csv_index }}">
+                        <select name="nou_estat" onchange="this.form.submit()" class="w-full p-1 text-[10px] border rounded bg-slate-50 font-bold text-slate-700">
+                            <option value="Pressupost" {% if estat == 'Pressupost' %}selected{% endif %}>💶 Pressupost</option>
+                            <option value="Pendent" {% if estat == 'Pendent' %}selected{% endif %}>⏳ Pendent</option>
+                            <option value="En Curs" {% if estat == 'En Curs' %}selected{% endif %}>🔧 En Curs</option>
+                            <option value="Esperant Recanvi" {% if estat == 'Esperant Recanvi' %}selected{% endif %}>📦 Recanvi</option>
+                            <option value="Finalitzada" {% if estat == 'Finalitzada' %}selected{% endif %}>✅ Acabat</option>
+                        </select>
+                    </form>
+
+                    {% if t.Estat == 'Finalitzada' %}
+                    <form action="/arxivar_tasca" method="POST" class="inline">
+                        <input type="hidden" name="csv_index" value="{{ t.csv_index }}">
+                        <input type="hidden" name="redirect_to" value="tasques">
+                        <button type="submit" onclick="return confirm('Vols enviar aquesta tasca a l\'Arxiu?');" class="bg-slate-700 hover:bg-slate-800 text-white font-bold p-1 rounded text-[10px] shadow" title="Arxivar Tasca">
+                            📥
+                        </button>
+                    </form>
+                    {% endif %}
+                    
+                    <form action="/eliminar_tasca" method="POST" onsubmit="return confirm('Segur que vols eliminar aquesta tasca?');">
+                        <input type="hidden" name="csv_index" value="{{ t.csv_index }}">
+                        <button type="submit" class="text-slate-400 hover:text-red-600 p-1 rounded" title="Eliminar Tasca">🗑️</button>
+                    </form>
+                </div>
+            </div>
+            {% else %}
+            <div class="p-4 text-center text-slate-400 text-[11px] border border-dashed rounded-lg msg-sense-tasques">
+                Sense tasques
+            </div>
+            {% endfor %}
         </div>
     </div>
     {% endfor %}
@@ -370,11 +361,6 @@
                 </div>
 
                 <div>
-                    <label class="block text-xs font-bold mb-1">👔 Project Manager / Responsable</label>
-                    <input type="text" name="project_manager" value="{{ tasca_edit.Project_Manager if tasca_edit.Project_Manager else '' }}" placeholder="Ex: MARC / XAVI" class="w-full p-2 border rounded text-xs bg-slate-50 font-semibold">
-                </div>
-
-                <div>
                     <label class="block text-xs font-bold mb-1">Prioritat</label>
                     <select name="prioritat" class="w-full p-2 border rounded text-xs bg-slate-50 font-bold">
                         <option value="Normal" {% if tasca_edit.Prioritat == 'Normal' %}selected{% endif %}>🟢 Normal</option>
@@ -392,6 +378,7 @@
                     <input type="date" name="data_fi" value="{{ tasca_edit.Data_Fi if tasca_edit.Data_Fi else '' }}" class="w-full p-2 border rounded text-xs bg-slate-50 font-semibold">
                 </div>
 
+                <!-- 👷 DESPLEGABLE D'OPERARIS DINS EL MODAL D'EDICIÓ -->
                 <div class="md:col-span-2">
                     <label class="block text-xs font-bold mb-1">Operaris Assignats</label>
                     {% set ops_assignats = tasca_edit.Operari.split(',') if tasca_edit.Operari else [] %}
@@ -435,8 +422,8 @@
         <div class="p-5 space-y-5 text-xs text-slate-700">
             <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-slate-50 p-3 rounded-xl border">
                 <div>
-                    <span class="block text-slate-400 font-semibold">👔 Project Manager</span>
-                    <span class="font-bold text-purple-900">{{ tasca_view.Project_Manager if tasca_view.Project_Manager else '-' }}</span>
+                    <span class="block text-slate-400 font-semibold">📝 Data Creació</span>
+                    <span class="font-bold text-slate-800">{{ tasca_view.Data_Creacio if tasca_view.Data_Creacio else '-' }}</span>
                 </div>
                 <div>
                     <span class="block text-slate-400 font-semibold">👷 Operaris Assignats</span>
@@ -513,6 +500,7 @@
                 {% endif %}
             </div>
 
+            <!-- ⚠️ SECCIÓ: MATERIAL NO SUBMINISTRAT (REGISTRAT PER L'OPERARI) -->
             {% if tasca_view.Material_No_Subministrat %}
             <div>
                 <h4 class="font-bold text-red-900 mb-2 flex items-center space-x-1">
@@ -586,6 +574,44 @@ document.addEventListener("DOMContentLoaded", function() {
         });
     }
 });
+
+// 🔍 CERCA EN TEMPS REAL A LES TARGETES DEL KANBAN
+function filtrarTasquesPerCerca() {
+    const query = document.getElementById("inputCercadorTasques").value.toLowerCase().trim();
+    const btnNetejar = document.getElementById("btnNetejarCerca");
+    
+    if (query.length > 0) {
+        btnNetejar.classList.remove("hidden");
+    } else {
+        btnNetejar.classList.add("hidden");
+    }
+
+    document.querySelectorAll(".columna-kanban").forEach(col => {
+        let visiblesAColumna = 0;
+        const targetes = col.querySelectorAll(".targeta-tasca");
+        
+        targetes.forEach(card => {
+            const textContent = card.getAttribute("data-text-cerca").toLowerCase();
+            if (textContent.includes(query)) {
+                card.classList.remove("hidden");
+                visiblesAColumna++;
+            } else {
+                card.classList.add("hidden");
+            }
+        });
+
+        // Actualitzar el comptador numèric del header de la columna
+        const comptador = col.querySelector(".comptador-columna");
+        if (comptador) {
+            comptador.textContent = visiblesAColumna;
+        }
+    });
+}
+
+function netejarCercador() {
+    document.getElementById("inputCercadorTasques").value = "";
+    filtrarTasquesPerCerca();
+}
 
 function filtrarVistaEstat(estatDemanat) {
     const grid = document.getElementById('kanban-grid');
