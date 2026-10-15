@@ -167,16 +167,18 @@ def exportar_clients_excel():
 def importar_clients_excel():
     file = request.files.get("fitxer_excel")
     if file and (file.filename.endswith('.xlsx') or file.filename.endswith('.xls')):
+        # 1. Llegim l'Excel
         df_nou = pd.read_excel(file, dtype=str).fillna("")
-        df_nou = df_nou.loc[:, ~df_nou.columns.str.contains('^Unnamed')]
-        df_nou = df_nou.loc[:, ~df_nou.columns.duplicated()]
         
-        # Mapa de columnes flexible
+        # Treiem columnes buides o de sistema
+        df_nou = df_nou.loc[:, ~df_nou.columns.str.contains('^Unnamed', na=False)]
+        
+        # 2. Mapa de traducció de columnes
         mapa_columnes = {
             "id": "ID", "codi": "ID", "id_client": "ID", "id client": "ID",
             "població": "Poblacio", "poblacio": "Poblacio", "poblacio/ciutat": "Poblacio", "ciutat": "Poblacio",
             "codi postal": "CP", "codi_postal": "CP", "cp": "CP", "zip": "CP",
-            "email": "Email", "e-mail": "Email", "correu": "Email", "correu electronic": "Email", "correu electrònic": "Email",
+            "email": "Email", "e-mail": "Email", "correu": "Email", "correu electronic": "Email", "correu electrònic": "Email", "correu electrònic.1": "Email",
             "carrer": "Carrer", "adreça": "Carrer", "adreca": "Carrer",
             "telèfon": "Telèfon", "telefon": "Telèfon", "nif": "NIF", "cif": "NIF", "dni": "NIF", "nif/cif": "NIF",
             "embarcació": "Embarcació", "embarcacio": "Embarcació", "barco": "Embarcació",
@@ -191,15 +193,28 @@ def importar_clients_excel():
         
         df_nou = df_nou.rename(columns=noves_col)
         
+        # ⚠️ CLAU PER EVITAR L'ERROR "Name: 0, dtype: str":
+        # Fusionem columnes que hagin pogut quedar amb el mateix nom (p.ex. si hi havia 'Embarcació' i 'Embarcacio')
+        df_nou = df_nou.T.groupby(level=0).first().T
+        
         # Carreguem el DataFrame actual de clients
         df_actual = carregar_clients()
         if df_actual.empty:
             df_actual = pd.DataFrame(columns=["ID", "Tipus", "Nom", "Cognoms", "Persona_Contacte", "NIF", "Telèfon", "Email", "Carrer", "Adreça", "CP", "Poblacio", "Embarcació", "Port", "Amarre", "Claus", "Comentaris"])
         
-        # Recorrem les files de l'Excel a importar
+        # 3. Recorrem les files de l'Excel importat
         for _, fila_importada in df_nou.iterrows():
-            id_imp = str(fila_importada.get("ID", "")).strip()
-            nif_imp = str(fila_importada.get("NIF", "")).strip().upper()
+            # Funció auxiliar per extreure un string net d'una cel·la
+            def netejar_valor(val):
+                if isinstance(val, pd.Series):
+                    val = val.dropna().iloc[0] if not val.dropna().empty else ""
+                val_str = str(val).strip()
+                if val_str.lower() in ["nan", "none", "<na>"]:
+                    return ""
+                return val_str
+
+            id_imp = netejar_valor(fila_importada.get("ID", ""))
+            nif_imp = netejar_valor(fila_importada.get("NIF", "")).upper()
             
             # Cercar si el client ja existeix (primer per ID, desprès per NIF)
             coincidencia_idx = None
@@ -214,20 +229,23 @@ def importar_clients_excel():
                 if not matches.empty:
                     coincidencia_idx = matches.index[0]
             
-            # CAS 1: El client JA EXISTEIX -> Només actualitzem/omplim les dades que falten
+            # CAS 1: El client JA EXISTEIX -> Només actualitzem/omplim les dades que venien a l'Excel
             if coincidencia_idx is not None:
                 for col in fila_importada.index:
-                    valor_nou = str(fila_importada[col]).strip()
-                    # Actualitzem si a l'Excel ve un valor no buit
-                    if valor_nou:
+                    valor_nou = netejar_valor(fila_importada[col])
+                    if valor_nou and col in df_actual.columns:
                         df_actual.at[coincidencia_idx, col] = valor_nou
                         if col == "Carrer":
                             df_actual.at[coincidencia_idx, "Adreça"] = valor_nou
 
             # CAS 2: El client NO EXISTEIX -> L'afegim com a nou registrat
             else:
-                if str(fila_importada.get("Nom", "")).strip() or nif_imp:
-                    nou_row = fila_importada.to_dict()
+                nom_imp = netejar_valor(fila_importada.get("Nom", ""))
+                if nom_imp or nif_imp:
+                    nou_row = {}
+                    for col in fila_importada.index:
+                        nou_row[col] = netejar_valor(fila_importada[col])
+                    
                     if not nou_row.get("ID"):
                         nou_row["ID"] = generar_nou_id(df_actual)
                     if nou_row.get("Carrer") and not nou_row.get("Adreça"):
@@ -235,6 +253,8 @@ def importar_clients_excel():
                     
                     df_actual = pd.concat([df_actual, pd.DataFrame([nou_row])], ignore_index=True)
 
+        # Netegem duplicitats de columnes final a df_actual si escau
+        df_actual = df_actual.loc[:, ~df_actual.columns.duplicated()]
         guardar_clients(df_actual)
         
     return redirect(url_for("clients.vista_clients"))
