@@ -15,7 +15,7 @@ DIC_MOTORS_BASE = {
     "Caterpillar": ["3208", "C12", "C18", "C32", "C7", "C9"],
     "Cummins": ["QSB 5.9", "QSB 6.7", "QSC 8.3", "QSL 9", "QSM 11"],
     "MAN": ["V12-1550", "V12-1900", "V8-1000", "V8-1200", "i6-730"],
-    "Mercury / Mercruiser": ["350 MAG MPI", "4.3 MPI", "5.0 MPI", "5.7L", "6.2L V8", "8.2 MAG", "F115 EFI", "F150 EFI", "F200 Verado", "F350 Verado", "F350 Verado"],
+    "Mercury / Mercruiser": ["350 MAG MPI", "4.3 MPI", "5.0 MPI", "5.7L", "6.2L V8", "8.2 MAG", "F115 EFI", "F150 EFI", "F200 Verado", "F350 Verado"],
     "Suzuki": ["DF115B", "DF140B", "DF150AP", "DF200AP", "DF250AP", "DF300AP", "DF350A", "DF90A"],
     "Volvo Penta": ["D1-13", "D1-20", "D1-30", "D11-670", "D13-900", "D2-40", "D2-50", "D2-60", "D2-75", "D3-110", "D3-150", "D3-220", "D4-180", "D4-225", "D4-260", "D4-300", "D6-310", "D6-370", "D6-435", "KAD300", "KAD32", "KAD42", "KAD43", "KAD44", "TAMD41"],
     "Yanmar": ["1GM10", "2YM15", "3JH40", "3YM20", "3YM30AE", "4JH110", "4JH45", "4JH57", "4JH80", "4LHA-STP", "6CX530", "6LPA-STP", "6LY400"]
@@ -78,6 +78,8 @@ def vista_embarcacions():
     df_cli = carregar_clients()
     dic_motors = carregar_diccionari_motors()
     
+    sort_by = request.args.get("sort_by", "nom_asc")
+    
     llista_clients_noms = []
     if not df_cli.empty:
         for _, r in df_cli.iterrows():
@@ -101,7 +103,7 @@ def vista_embarcacions():
             item["enllacs_llista"] = extreure_enllacs(item.get("Enllacs", ""))
             item["num_docs"] = len(item["enllacs_llista"])
 
-            emb_folder = secure_filename(item.get("Nom", "GENERAL"))
+            emb_folder = secure_filename(str(item.get("Nom", "GENERAL")))
             folder_path = os.path.join(current_app.config['UPLOAD_FOLDER'], emb_folder)
             fotos = []
             if os.path.exists(folder_path):
@@ -111,9 +113,19 @@ def vista_embarcacions():
             
             if edit_idx is not None and edit_idx == idx:
                 emb_edit = item
+                
+    # Ordenació al backend per defecte
+    if sort_by == "nom_asc":
+        llista_emb.sort(key=lambda x: str(x.get("Nom", "")).lower())
+    elif sort_by == "nom_desc":
+        llista_emb.sort(key=lambda x: str(x.get("Nom", "")).lower(), reverse=True)
+    elif sort_by == "propietari_asc":
+        llista_emb.sort(key=lambda x: str(x.get("Client_Propietari", "")).lower())
+    elif sort_by == "propietari_desc":
+        llista_emb.sort(key=lambda x: str(x.get("Client_Propietari", "")).lower(), reverse=True)
             
     now_date = datetime.now().strftime("%Y-%m-%d")
-    return render_template("embarcacions.html", embarcacions=llista_emb, clients_llista=sorted(llista_clients_noms), dic_motors=dic_motors, edit_idx=edit_idx, emb_edit=emb_edit, now_date=now_date)
+    return render_template("embarcacions.html", embarcacions=llista_emb, clients_llista=sorted(llista_clients_noms), dic_motors=dic_motors, edit_idx=edit_idx, emb_edit=emb_edit, now_date=now_date, current_sort=sort_by)
 
 # 📊 EXPORTAR EMBARCACIONS A EXCEL
 @embarcacions_bp.route("/exportar_embarcacions_excel", methods=["GET"])
@@ -131,8 +143,7 @@ def importar_embarcacions_excel():
     file = request.files.get("fitxer_excel")
     if file and (file.filename.endswith('.xlsx') or file.filename.endswith('.xls')):
         df_nou = pd.read_excel(file, dtype=str).fillna("")
-        df_nou = df_nou.loc[:, ~df_nou.columns.str.contains('^Unnamed')]
-        df_nou = df_nou.loc[:, ~df_nou.columns.duplicated()]
+        df_nou = df_nou.loc[:, ~df_nou.columns.str.contains('^Unnamed', na=False)]
         
         mapa_columnes = {
             "nom": "Nom", "embarcació": "Nom", "embarcacio": "Nom", "barco": "Nom",
@@ -175,7 +186,7 @@ def galeria_fotos(idx):
     embarcacio = df.iloc[idx].to_dict()
     embarcacio["csv_index"] = idx
     
-    emb_folder = secure_filename(embarcacio.get("Nom", "GENERAL"))
+    emb_folder = secure_filename(str(embarcacio.get("Nom", "GENERAL")))
     folder_path = os.path.join(current_app.config['UPLOAD_FOLDER'], emb_folder)
     
     fotos = []
@@ -208,7 +219,7 @@ def pujar_foto_embarcacio():
     file = request.files.get("foto")
     if file and file.filename != '':
         df = carregar_embarcacions()
-        emb_folder = secure_filename(df.at[idx, "Nom"])
+        emb_folder = secure_filename(str(df.at[idx, "Nom"]))
         dest_dir = os.path.join(current_app.config['UPLOAD_FOLDER'], emb_folder)
         os.makedirs(dest_dir, exist_ok=True)
         filename = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{secure_filename(file.filename)}"
@@ -222,7 +233,7 @@ def eliminar_foto_embarcacio():
     df = carregar_embarcacions()
     
     if idx >= 0 and idx < len(df) and filename:
-        emb_folder = secure_filename(df.at[idx, "Nom"])
+        emb_folder = secure_filename(str(df.at[idx, "Nom"]))
         filepath = os.path.join(current_app.config['UPLOAD_FOLDER'], emb_folder, filename)
         if os.path.exists(filepath):
             os.remove(filepath)
@@ -237,7 +248,7 @@ def afegir_enllac_embarcacio():
     
     url_final = ""
     df = carregar_embarcacions()
-    emb_nom = df.at[idx, "Nom"]
+    emb_nom = str(df.at[idx, "Nom"])
     
     if tipus_doc == "pdf":
         file = request.files.get("pdf_file")
@@ -272,7 +283,7 @@ def eliminar_document_embarcacio():
             doc_esborrar = enllacs.pop(link_idx)
             
             if doc_esborrar["es_pdf"]:
-                emb_folder = secure_filename(df.at[idx, "Nom"])
+                emb_folder = secure_filename(str(df.at[idx, "Nom"]))
                 rel_path = doc_esborrar["url"].replace(f"/uploads/{emb_folder}/", "")
                 filepath = os.path.join(current_app.config['UPLOAD_FOLDER'], emb_folder, rel_path)
                 if os.path.exists(filepath):
@@ -435,6 +446,5 @@ def eliminar_embarcacio():
         df = df.drop(idx).reset_index(drop=True)
         guardar_embarcacions(df)
     return redirect(url_for("embarcacions.vista_embarcacions"))
-
 
 
