@@ -154,28 +154,26 @@ def carregar_df_operaris():
 def vista_operari():
     operaris = carregar_operaris()
     
-    # Check si l'usuari actual és un administrador autenticat
-    es_admin = bool(session.get("admin_autenticat"))
-    
-    operari_autenticat = request.cookies.get("operari_saved") or session.get("operari_autenticat")
+    # 🔒 RECUPERACIÓ D'OPERARI (PARÀMETRE URL, SESSIÓ O COOKIE)
     operari_req = request.args.get("operari")
+    operari_autenticat = session.get("operari_autenticat") or request.cookies.get("operari_saved")
     
-    # Si és administrador, pot veure qualsevol operari directament sense demanar login
-    if es_admin:
-        operari_sel = operari_req or (operaris[0] if operaris else None)
-    else:
-        if operari_req and operari_autenticat and operari_req.upper() != operari_autenticat.upper():
-            operari_autenticat = None
-            
-        operari_sel = operari_req or operari_autenticat
-        
-        if not operari_autenticat or not operari_sel:
-            return render_template("login_operari.html", operaris=operaris, operari_sel=operari_sel, error=request.args.get("error_auth"))
+    operari_sel = operari_req or operari_autenticat
+
+    # Si tenim un operari identificat, el gravem clarament a la sessió de Flask
+    if operari_sel:
+        session["operari_autenticat"] = operari_sel
+
+    # El mode administració NOMÉS s'activa si s'ha entrat com a admin I NO hi ha cap operari actiu treballant
+    es_admin = bool(session.get("admin_autenticat")) and not bool(session.get("operari_autenticat"))
+
+    # Si no hi ha cap operari assignat, mostrem el formulari d'accés
+    if not operari_sel:
+        return render_template("login_operari.html", operaris=operaris, operari_sel=None, error=request.args.get("error_auth"))
 
     confirm_idx = request.args.get("confirm_idx", type=int)
     edit_reg_info = {"task_idx": request.args.get("edit_task_idx", type=int), "reg_idx": request.args.get("edit_reg_idx", type=int)}
     
-    # 📦 Carregar la base de dades d'articles per a l'autocompletat (amb Stock i Ubicació)
     df_articles = carregar_articles()
     llista_articles = []
     if not df_articles.empty:
@@ -191,7 +189,6 @@ def vista_operari():
                 if ref_int: etiqueta += f" (INT: {ref_int})"
                 if desc: etiqueta += f" - {desc}"
                 
-                # Afegir Stock i Ubicació visibles per a l'operari
                 detalls_extra = []
                 if stock: detalls_extra.append(f"Stock: {stock}")
                 if ubicacio: detalls_extra.append(f"Ubicació: {ubicacio}")
@@ -249,8 +246,103 @@ def vista_operari():
                 item["fotos"] = fotos
                 tasques_op.append(item)
 
-    return render_template("operari.html", operaris=operaris, operari_sel=operari_sel, perfil=perfil_data, tasques=tasques_op, confirm_idx=confirm_idx, edit_reg_info=edit_reg_info, articles=llista_articles, es_admin=es_admin)
+    now_date = datetime.now().strftime("%Y-%m-%d")
 
+    response = make_response(render_template(
+        "operari.html", 
+        operaris=operaris, 
+        operari_sel=operari_sel, 
+        perfil=perfil_data, 
+        tasques=tasques_op, 
+        confirm_idx=confirm_idx, 
+        edit_reg_info=edit_reg_info, 
+        articles=llista_articles, 
+        es_admin=es_admin,
+        now_date=now_date
+    ))
+    
+    if operari_sel:
+        response.set_cookie("operari_saved", operari_sel, max_age=30*24*3600)
+        
+    return response
+
+@operari_bp.route("/iniciar_crono", methods=["POST"])
+def iniciar_crono():
+    idx = int(request.form.get("csv_index"))
+    operari_sel = request.form.get("operari_sel", "").strip() or session.get("operari_autenticat", "").strip() or request.cookies.get("operari_saved", "").strip()
+    
+    if operari_sel:
+        session["operari_autenticat"] = operari_sel
+    
+    df = carregar_tasques()
+    
+    if 0 <= idx < len(df) and operari_sel:
+        crono_dict = {}
+        json_str = str(df.at[idx, "Inici_Crono"])
+        if json_str.startswith("{"):
+            try: crono_dict = json.loads(json_str)
+            except Exception: pass
+            
+        crono_dict[operari_sel] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        df.at[idx, "Inici_Crono"] = json.dumps(crono_dict)
+        df.at[idx, "Estat"] = "En Curs"
+        guardar_tasques(df)
+        
+    return redirect(url_for("operari.vista_operari", operari=operari_sel))
+
+@operari_bp.route("/aturar_crono", methods=["POST"])
+def aturar_crono():
+    idx = int(request.form.get("csv_index"))
+    operari_sel = request.form.get("operari_sel", "").strip() or session.get("operari_autenticat", "").strip() or request.cookies.get("operari_saved", "").strip()
+    
+    if operari_sel:
+        session["operari_autenticat"] = operari_sel
+
+    df = carregar_tasques()
+    
+    if 0 <= idx < len(df) and operari_sel:
+        crono_dict = {}
+        json_str = str(df.at[idx, "Inici_Crono"])
+        if json_str.startswith("{"):
+            try: crono_dict = json.loads(json_str)
+            except Exception: pass
+        elif json_str:
+            crono_dict = {operari_sel: json_str}
+            
+        inici_str = crono_dict.get(operari_sel, "")
+        if inici_str:
+            try:
+                t_inici = datetime.strptime(inici_str, "%Y-%m-%d %H:%M:%S")
+                t_fi = datetime.now()
+                diff_segons = max(0, int((t_fi - t_inici).total_seconds()))
+                
+                h_int = int(diff_segons // 3600)
+                m_int = int(round((diff_segons % 3600) / 60))
+                if m_int == 60:
+                    h_int += 1
+                    m_int = 0
+                
+                data_avui = t_fi.strftime("%d/%m/%y")
+                hora_i = t_inici.strftime("%H:%M")
+                hora_f = t_fi.strftime("%H:%M")
+                
+                nova_nota = f"[{operari_sel} | Crono {data_avui}: {hora_i} a {hora_f} ({h_int}h {m_int:02d}m)]"
+                
+                com_actual = df.at[idx, "Comentaris_Operari"]
+                nou_com = f"{com_actual} | {nova_nota}" if com_actual else nova_nota
+                df.at[idx, "Comentaris_Operari"] = nou_com
+                df.at[idx, "Hores_Imputades"] = calcular_total_formatted(nou_com)
+                
+            except Exception as e:
+                print(f"Error calculant crono: {e}")
+                
+            crono_dict.pop(operari_sel, None)
+            df.at[idx, "Inici_Crono"] = json.dumps(crono_dict) if crono_dict else ""
+            df.at[idx, "Estat"] = "En Curs"
+            guardar_tasques(df)
+            
+    return redirect(url_for("operari.vista_operari", operari=operari_sel, confirm_idx=idx))
+    
 @operari_bp.route("/login_operari", methods=["POST"])
 def login_operari():
     operari_sel = request.form.get("operari", "").strip()
