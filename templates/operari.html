@@ -263,46 +263,55 @@
                         </form>
                     </div>
                 {% endif %}
+            <!-- DESPLEGABLE: TEMPS MANUAL I HISTÒRIC -->
+<details class="text-xs bg-slate-50 p-2.5 rounded-lg border mt-2">
+    <summary class="cursor-pointer font-bold text-slate-700">⏱ Històric de Hores i Temps Manual</summary>
+    
+    <form action="/afegir_temps_manual" method="POST" class="mt-2 grid grid-cols-1 sm:grid-cols-3 gap-2 border-b pb-3">
+        <input type="hidden" name="csv_index" value="{{ t.csv_index }}">
+        <input type="hidden" name="operari_sel" value="{{ operari_sel }}">
+        
+        <!-- 📅 NOU CAMP PER TRIAR LA DATA D'IMPUTACIÓ -->
+        <div>
+            <label class="block text-[10px] font-bold text-slate-700">📅 Data Imputació</label>
+            <input type="date" name="data_imputacio" value="{{ now_date }}" required class="w-full p-1 border rounded text-xs bg-white font-bold text-slate-800">
+        </div>
 
-                <!-- DESPLEGABLE: TEMPS MANUAL I HISTÒRIC -->
-                <details class="text-xs bg-slate-50 p-2.5 rounded-lg border mt-2">
-                    <summary class="cursor-pointer font-bold text-slate-700">⏱ Històric de Hores i Temps Manual</summary>
-                    
-                    <form action="/afegir_temps_manual" method="POST" class="mt-2 grid grid-cols-2 gap-2 border-b pb-3">
-                        <input type="hidden" name="csv_index" value="{{ t.csv_index }}">
-                        <input type="hidden" name="operari_sel" value="{{ operari_sel }}">
-                        <div>
-                            <label class="block text-[10px] font-bold">Hora Inici</label>
-                            <input type="time" name="hora_inici" required class="w-full p-1 border rounded text-xs bg-white">
-                        </div>
-                        <div>
-                            <label class="block text-[10px] font-bold">Hora Fi</label>
-                            <input type="time" name="hora_fi" required class="w-full p-1 border rounded text-xs bg-white">
-                        </div>
-                        <div class="col-span-2">
-                            <button type="submit" class="w-full bg-slate-700 hover:bg-slate-800 text-white font-bold py-1.5 rounded text-xs">
-                                ➕ Afegir Hores Manualment
-                            </button>
-                        </div>
-                    </form>
+        <div>
+            <label class="block text-[10px] font-bold text-slate-700">Hora Inici</label>
+            <input type="time" name="hora_inici" required class="w-full p-1 border rounded text-xs bg-white font-bold text-slate-800">
+        </div>
 
-                    {% if t.historial_hores %}
-                        <ul class="mt-2 space-y-1 text-[11px]">
-                            {% for h in t.historial_hores %}
-                            <li class="flex justify-between items-center bg-white p-1 rounded border">
-                                <span>👷 <strong>{{ h.operari }}</strong> ({{ h.data }}): {{ h.inici }} - {{ h.fi }} (<strong>{{ h.total }}</strong>)</span>
-                                <form action="/eliminar_registre_hora" method="POST" class="inline">
-                                    <input type="hidden" name="csv_index" value="{{ t.csv_index }}">
-                                    <input type="hidden" name="reg_index" value="{{ h.reg_index }}">
-                                    <input type="hidden" name="operari_sel" value="{{ operari_sel }}">
-                                    <button type="submit" class="text-red-500 font-bold px-1" title="Eliminar registre">🗑️</button>
-                                </form>
-                            </li>
-                            {% endfor %}
-                        </ul>
-                    {% endif %}
-                </details>
-            </div>
+        <div>
+            <label class="block text-[10px] font-bold text-slate-700">Hora Fi</label>
+            <input type="time" name="hora_fi" required class="w-full p-1 border rounded text-xs bg-white font-bold text-slate-800">
+        </div>
+
+        <div class="sm:col-span-3">
+            <button type="submit" class="w-full bg-slate-700 hover:bg-slate-800 text-white font-bold py-1.5 rounded text-xs shadow transition">
+                ➕ Afegir Hores Manualment
+            </button>
+        </div>
+    </form>
+
+    {% if t.historial_hores %}
+        <ul class="mt-2 space-y-1 text-[11px]">
+            {% for h in t.historial_hores %}
+            <li class="flex justify-between items-center bg-white p-1 rounded border">
+                <span>👷 <strong>{{ h.operari }}</strong> ({{ h.data }}): {{ h.inici }} - {{ h.fi }} (<strong>{{ h.total }}</strong>)</span>
+                <form action="/eliminar_registre_hora" method="POST" class="inline">
+                    <input type="hidden" name="csv_index" value="{{ t.csv_index }}">
+                    <input type="hidden" name="reg_index" value="{{ h.reg_index }}">
+                    <input type="hidden" name="operari_sel" value="{{ operari_sel }}">
+                    <button type="submit" class="text-red-500 font-bold px-1 hover:text-red-700" title="Eliminar registre">🗑️</button>
+                </form>
+            </li>
+            {% endfor %}
+        </ul>
+    {% endif %}
+</details>
+
+                
 
             <!-- DESPLEGABLE: MATERIAL SUBMINISTRAT / RECANVIS -->
             <details class="text-xs bg-amber-50/60 p-2.5 rounded-lg border border-amber-200 mb-3">
