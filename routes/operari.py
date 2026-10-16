@@ -148,21 +148,23 @@ def carregar_df_operaris():
 @operari_bp.route("/operari", methods=["GET"])
 def vista_operari():
     operaris = carregar_operaris()
-    es_admin = bool(session.get("admin_autenticat"))
     
-    operari_autenticat = session.get("operari_autenticat") or request.cookies.get("operari_saved")
+    # 🔒 RECUPERACIÓ D'OPERARI (PARÀMETRE URL, SESSIÓ O COOKIE)
     operari_req = request.args.get("operari")
+    operari_autenticat = session.get("operari_autenticat") or request.cookies.get("operari_saved")
     
-    if es_admin:
-        operari_sel = operari_req or operari_autenticat or (operaris[0] if operaris else None)
-    else:
-        operari_sel = operari_req or operari_autenticat
-        
-        if operari_sel and not session.get("operari_autenticat"):
-            session["operari_autenticat"] = operari_sel
+    operari_sel = operari_req or operari_autenticat
+    
+    # Si s'ha passat per la URL o cookie, consolidem la sessió de l'operari
+    if operari_sel:
+        session["operari_autenticat"] = operari_sel
 
-        if not session.get("operari_autenticat") or not operari_sel:
-            return render_template("login_operari.html", operaris=operaris, operari_sel=operari_sel, error=request.args.get("error_auth"))
+    # Determinem si té permís d'administració (Només si s'ha logat com a Admin I NO és un operari treballant)
+    es_admin = bool(session.get("admin_autenticat")) and not session.get("operari_autenticat")
+
+    # Si NO hi ha cap operari identificat, mostrem el login d'operari
+    if not operari_sel:
+        return render_template("login_operari.html", operaris=operaris, operari_sel=None, error=request.args.get("error_auth"))
 
     confirm_idx = request.args.get("confirm_idx", type=int)
     edit_reg_info = {"task_idx": request.args.get("edit_task_idx", type=int), "reg_idx": request.args.get("edit_reg_idx", type=int)}
@@ -258,6 +260,7 @@ def vista_operari():
         response.set_cookie("operari_saved", operari_sel, max_age=30*24*3600)
         
     return response
+
 
 @operari_bp.route("/login_operari", methods=["POST"])
 def login_operari():
