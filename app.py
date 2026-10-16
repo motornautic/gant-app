@@ -79,6 +79,20 @@ def requerir_login_admin():
     if session.get("admin_autenticat"):
         return
 
+    # Lectura de la fitxa individual per a operaris autenticats.
+    if (endpoint == "embarcacions.fitxa_embarcacio"
+            and request.method == "GET"
+            and session.get("operari_autenticat")):
+        return
+
+    # Lectura de la llista d'embarcacions per a operaris.
+    # Només s'autoritza el GET exacte de /embarcacions; qualsevol
+    # altra URL o mètode segueix requerint administració.
+    if (request.path.rstrip('/') == '/embarcacions'
+            and request.method == 'GET'
+            and session.get('operari_autenticat')):
+        return
+
     if endpoint in RUTES_OPERARI:
         if session.get("operari_autenticat"):
             return
@@ -280,6 +294,9 @@ def eliminar_admin():
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=5000, debug=True)
+
+
+
 
 
 
