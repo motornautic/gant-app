@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, redirect, url_for, current_app, send_file
+from flask import Blueprint, render_template, request, redirect, url_for, current_app, send_file, abort, session
 import pandas as pd
 import os, re, json, io
 from datetime import datetime
@@ -126,6 +126,41 @@ def vista_embarcacions():
             
     now_date = datetime.now().strftime("%Y-%m-%d")
     return render_template("embarcacions.html", embarcacions=llista_emb, clients_llista=sorted(llista_clients_noms), dic_motors=dic_motors, edit_idx=edit_idx, emb_edit=emb_edit, now_date=now_date, current_sort=sort_by)
+
+# FITXA INDIVIDUAL D'EMBARCACIÓ (NOMÉS CONSULTA)
+@embarcacions_bp.route("/embarcacions/fitxa", methods=["GET"])
+def fitxa_embarcacio():
+    # Una segona comprovació, independent del middleware.
+    if not (session.get("admin_autenticat") or session.get("operari_autenticat")):
+        abort(403)
+
+    nom = (request.args.get("nom") or "").strip()
+    if not nom:
+        abort(404)
+
+    df = carregar_embarcacions()
+    if df.empty or "Nom" not in df.columns:
+        abort(404)
+
+    coincidencies = df[df["Nom"].astype(str).str.strip().str.casefold() == nom.casefold()]
+    if coincidencies.empty:
+        abort(404)
+
+    idx = int(coincidencies.index[0])
+    embarcacio = coincidencies.iloc[0].to_dict()
+    embarcacio["csv_index"] = idx
+    embarcacio["historial_hores_llista"] = extreure_historial_hores_motor(embarcacio.get("Historial_Hores", ""))
+    embarcacio["enllacs_llista"] = extreure_enllacs(embarcacio.get("Enllacs", ""))
+
+    carpeta = secure_filename(str(embarcacio.get("Nom", "GENERAL")))
+    dir_fotos = os.path.join(current_app.config["UPLOAD_FOLDER"], carpeta)
+    embarcacio["fotos"] = (
+        [f"/uploads/{carpeta}/{f}" for f in sorted(os.listdir(dir_fotos))
+         if f.lower().endswith((".jpg", ".jpeg", ".png", ".webp"))]
+        if os.path.isdir(dir_fotos) else []
+    )
+    return render_template("fitxa_embarcacio.html", e=embarcacio)
+
 
 # 📊 EXPORTAR EMBARCACIONS A EXCEL
 @embarcacions_bp.route("/exportar_embarcacions_excel", methods=["GET"])
@@ -446,5 +481,7 @@ def eliminar_embarcacio():
         df = df.drop(idx).reset_index(drop=True)
         guardar_embarcacions(df)
     return redirect(url_for("embarcacions.vista_embarcacions"))
+
+
 
 
