@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="max-w-4xl mx-auto space-y-4">
+  <div class="flex flex-wrap items-center justify-between gap-3">
+    <a href="{{ url_for('operari.vista_operari') if session.get('operari_autenticat') and not session.get('admin_autenticat') else url_for('embarcacions.vista_embarcacions') }}" class="rounded-lg bg-slate-200 px-4 py-2 text-sm font-bold text-slate-800">← Tornar</a>
+    <span class="rounded-lg bg-blue-100 px-3 py-1 text-sm font-bold text-blue-900">👁️ Fitxa de consulta · Només lectura</span>
+  </div>
+  <div class="rounded-2xl bg-blue-900 text-white p-5 text-center shadow">
+    <h2 class="text-2xl sm:text-3xl font-extrabold">⛵ {{ e.Nom }}</h2>
+    <p class="mt-2 text-blue-100">{{ e.Model_Barco or 'Model no informat' }}</p>
+  </div>
+  <div class="grid sm:grid-cols-2 gap-4">
+    <section class="rounded-xl bg-white p-4 border shadow-sm space-y-2">
+      <h3 class="font-bold text-blue-900">📋 Dades de l'embarcació</h3>
+      <p><strong>Propietari:</strong> {{ e.Client_Propietari or '—' }}</p>
+      <p><strong>Matrícula:</strong> {{ e.Matricula or '—' }}</p>
+      <p><strong>Port:</strong> {{ e.Port or '—' }}</p>
+      <p><strong>Amarre:</strong> {{ e.Amarre or '—' }}</p>
+      <p><strong>Claus:</strong> {{ e.Claus or '—' }}</p>
+    </section>
+    <section class="rounded-xl bg-white p-4 border shadow-sm space-y-2">
+      <h3 class="font-bold text-blue-900">⚙️ Motorització</h3>
+      <p><strong>Marca:</strong> {{ e.Marca_Motor or '—' }}</p>
+      <p><strong>Model:</strong> {{ e.Model_Motor or '—' }}</p>
+      <p><strong>Núm. motors:</strong> {{ e.Num_Motors or '—' }}</p>
+      <p><strong>Núm. de sèrie:</strong> {{ e.Num_Serie_Motors or '—' }}</p>
+      <p><strong>Hores:</strong> {{ e.Hores_Motor or '—' }}</p>
+      <p><strong>Data de lectura:</strong> {{ e.Data_Hores or '—' }}</p>
+    </section>
+  </div>
+  {% if e.Comentaris %}
+  <section class="rounded-xl bg-white p-4 border shadow-sm">
+    <h3 class="font-bold text-blue-900 mb-2">📝 Observacions</h3>
+    <p class="whitespace-pre-wrap text-sm">{{ e.Comentaris }}</p>
+  </section>
+  {% endif %}
+  {% if e.historial_hores_llista %}
+  <section class="rounded-xl bg-white p-4 border shadow-sm">
+    <h3 class="font-bold text-blue-900 mb-2">⏱️ Historial d'hores de motor</h3>
+    {% for h in e.historial_hores_llista %}
+      <p class="text-sm py-1 border-b last:border-0">{{ h.data }} — {{ h.hores }} h</p>
+    {% endfor %}
+  </section>
+  {% endif %}
+  {% if e.enllacs_llista %}
+  <section class="rounded-xl bg-white p-4 border shadow-sm space-y-2">
+    <h3 class="font-bold text-blue-900">📄 Documents i enllaços</h3>
+    {% for doc in e.enllacs_llista %}
+      <a href="{{ doc.url }}" class="block text-sm text-blue-700 underline break-all" target="_blank" rel="noopener noreferrer">📄 {{ doc.titol }}</a>
+    {% endfor %}
+  </section>
+  {% endif %}
+  {% if e.fotos %}
+  <section class="rounded-xl bg-white p-4 border shadow-sm">
+    <h3 class="font-bold text-blue-900 mb-3">📷 Fotografies</h3>
+    <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+      {% for foto in e.fotos %}
+      <a href="{{ foto }}" target="_blank" rel="noopener noreferrer"><img src="{{ foto }}" loading="lazy" alt="Fotografia de {{ e.Nom }}" class="w-full h-36 object-cover rounded-lg border"></a>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+</div>
+{% endblock %}
