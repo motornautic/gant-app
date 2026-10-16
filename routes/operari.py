@@ -190,77 +190,122 @@ def login_operari():
     
     return redirect(url_for("operari.vista_operari", operari=operari_sel, error_auth=1))
 
-@operari_bp.route("/logout_operari", methods=["POST"])
-def logout_operari():
-    session.pop("operari_autenticat", None)
-    response = make_response(redirect(url_for("operari.vista_operari")))
-    response.delete_cookie("operari_saved")
+@operari_bp.route("/operari", methods=["GET"])
+def vista_operari():
+    # 1. Carreguem la llista d'operaris des de la base de dades
+    operaris = carregar_operaris()
+    es_admin = bool(session.get("admin_autenticat"))
+    
+    # 🔒 RECUPERACIÓ DE SESSIÓ I COOKIE MULTI-CAPA
+    operari_autenticat = session.get("operari_autenticat") or request.cookies.get("operari_saved")
+    operari_req = request.args.get("operari")
+    
+    if es_admin:
+        operari_sel = operari_req or operari_autenticat or (operaris[0] if operaris else None)
+    else:
+        operari_sel = operari_req or operari_autenticat
+        
+        if operari_sel and not session.get("operari_autenticat"):
+            session["operari_autenticat"] = operari_sel
+
+        if not session.get("operari_autenticat") or not operari_sel:
+            return render_template("login_operari.html", operaris=operaris, operari_sel=operari_sel, error=request.args.get("error_auth"))
+
+    confirm_idx = request.args.get("confirm_idx", type=int)
+    edit_reg_info = {"task_idx": request.args.get("edit_task_idx", type=int), "reg_idx": request.args.get("edit_reg_idx", type=int)}
+    
+    df_articles = carregar_articles()
+    llista_articles = []
+    if not df_articles.empty:
+        for _, row in df_articles.iterrows():
+            ref = str(row.get("Ref", "")).strip()
+            ref_int = str(row.get("Ref_Interna", "")).strip()
+            desc = str(row.get("Descripcio", "")).strip()
+            stock = str(row.get("Stock", "0")).strip()
+            ubicacio = str(row.get("Ubicacio", "")).strip()
+            
+            if ref:
+                etiqueta = ref
+                if ref_int: etiqueta += f" (INT: {ref_int})"
+                if desc: etiqueta += f" - {desc}"
+                
+                detalls_extra = []
+                if stock: detalls_extra.append(f"Stock: {stock}")
+                if ubicacio: detalls_extra.append(f"Ubicació: {ubicacio}")
+                
+                if detalls_extra:
+                    etiqueta += f" [{ ' | '.join(detalls_extra) }]"
+                
+                llista_articles.append({
+                    "ref": ref,
+                    "etiqueta": etiqueta
+                })
+
+    df_tasques = carregar_tasques()
+    tasques_op = []
+    
+    perfil_data = {"Nom": operari_sel, "Cognoms": "", "Telefon": "", "Email": ""}
+    df_op = carregar_df_operaris()
+    if not df_op.empty and "Nom" in df_op.columns and operari_sel:
+        row_op = df_op[df_op["Nom"].str.upper() == operari_sel.upper()]
+        if not row_op.empty:
+            perfil_data["Cognoms"] = str(row_op.iloc[0].get("Cognoms", "")).strip()
+            perfil_data["Telefon"] = str(row_op.iloc[0].get("Telefon", "")).strip()
+            perfil_data["Email"] = str(row_op.iloc[0].get("Email", "")).strip()
+
+    if not df_tasques.empty and operari_sel:
+        for idx, row in df_tasques.iterrows():
+            operaris_assignats = [op.strip() for op in str(row.get("Operari", "")).split(",") if op.strip()]
+            data_inici_val = str(row.get("Data_Inici", "")).strip()
+            estat_val = str(row.get("Estat", "")).strip()
+            
+            if operari_sel in operaris_assignats and estat_val not in ["Arxivada", "Pressupost"] and data_inici_val != "":
+                item = row.to_dict()
+                item["csv_index"] = idx
+                
+                crono_dict = {}
+                json_str = str(item.get("Inici_Crono", ""))
+                if json_str.startswith("{"):
+                    try: crono_dict = json.loads(json_str)
+                    except Exception: pass
+                elif json_str:
+                    crono_dict = {"General": json_str}
+                
+                item["crono_actiu_operari"] = crono_dict.get(operari_sel, "")
+                item["hores_formatted"] = calcular_total_formatted(item.get("Comentaris_Operari", ""))
+                item["historial_hores"] = extreure_historial_hores(item.get("Comentaris_Operari", ""))
+                item["historial_material"] = extreure_historial_material(item.get("Material_Demanat", ""))
+                item["checklist"] = extreure_checklist_items(item.get("Tasques_Detall", ""))
+                item["historial_mat_no_subministrat"] = extreure_historial_material_no_subministrat(item.get("Material_No_Subministrat", ""))
+
+                emb_folder = secure_filename(item.get("Embarcació", "GENERAL"))
+                folder_path = os.path.join(current_app.config['UPLOAD_FOLDER'], emb_folder)
+                fotos = []
+                if os.path.exists(folder_path):
+                    fotos = [f"/uploads/{emb_folder}/{f}" for f in os.listdir(folder_path) if f.lower().endswith(('.png', '.jpg', '.jpeg', '.webp'))]
+                item["fotos"] = fotos
+                tasques_op.append(item)
+
+    now_date = datetime.now().strftime("%Y-%m-%d")
+
+    response = make_response(render_template(
+        "operari.html", 
+        operaris=operaris, 
+        operari_sel=operari_sel, 
+        perfil=perfil_data, 
+        tasques=tasques_op, 
+        confirm_idx=confirm_idx, 
+        edit_reg_info=edit_reg_info, 
+        articles=llista_articles, 
+        es_admin=es_admin,
+        now_date=now_date
+    ))
+    
+    if operari_sel:
+        response.set_cookie("operari_saved", operari_sel, max_age=30*24*3600)
+        
     return response
 
-@operari_bp.route("/sollicitar_recuperacio", methods=["POST"])
-def sollicitar_recuperacio():
-    email_input = request.form.get("email", "").strip().lower()
-    fitxer_op = os.path.join(os.getcwd(), 'operaris.csv')
-    df_operaris = carregar_df_operaris()
-    
-    if not df_operaris.empty and "Email" in df_operaris.columns:
-        idx_list = df_operaris.index[df_operaris["Email"].str.lower() == email_input].tolist()
-        if idx_list:
-            idx = idx_list[0]
-            operari_nom = df_operaris.at[idx, "Nom"]
-            
-            codi = ''.join(random.choices(string.digits, k=6))
-            expiracio = (datetime.now() + timedelta(minutes=15)).strftime("%Y-%m-%d %H:%M:%S")
-            
-            df_operaris.at[idx, "Reset_Code"] = codi
-            df_operaris.at[idx, "Reset_Expiry"] = expiracio
-            df_operaris.to_csv(fitxer_op, index=False)
-            
-            mail_user = current_app.config.get('MAIL_USERNAME')
-            mail_pass = current_app.config.get('MAIL_PASSWORD')
-            mail_server = current_app.config.get('MAIL_SERVER')
-            mail_port = current_app.config.get('MAIL_PORT', 465)
-            use_ssl = current_app.config.get('MAIL_USE_SSL', True)
-            
-            if mail_user and mail_pass and mail_server:
-                try:
-                    msg = MIMEMultipart()
-                    msg['From'] = f"MotorNautic Gestió <{mail_user}>"
-                    msg['To'] = email_input
-                    msg['Subject'] = f"🔑 Codi de recuperació de contrasenya: {codi}"
-                    
-                    cos_email = f"""
-                    Hola {operari_nom},
-                    
-                    Heu sol·licitat restablir la vostra contrasenya per accedir al Panell d'Operari.
-                    
-                    El teu codi de verificació de 6 dígits és: {codi}
-                    
-                    ⏱️ Aquest codi caducarà en 15 minuts.
-                    
-                    Si no heu demanat aquest canvi, podeu ignorar aquest correu.
-                    """
-                    msg.attach(MIMEText(cos_email, 'plain'))
-                    
-                    if use_ssl or mail_port == 465:
-                        server = smtplib.SMTP_SSL(mail_server, mail_port, timeout=10)
-                    else:
-                        server = smtplib.SMTP(mail_server, mail_port, timeout=10)
-                        server.starttls()
-                        
-                    server.login(mail_user, mail_pass)
-                    server.sendmail(mail_user, email_input, msg.as_string())
-                    server.quit()
-                    
-                    print(f"✅ EMAIL ENVIAT CORRECTAMENT A {email_input}")
-                except Exception as e:
-                    print(f"❌ Error enviant Email SMTP: {e}")
-            else:
-                print(f"⚠️ SMTP no configurat a app.py. Codi generat per a {email_input}: {codi}")
-
-            return render_template("reset_password.html", email=email_input, msg_info="S'ha enviat un codi de 6 dígits al teu correu. Tens 15 minuts per utilitzar-lo.")
-            
-    return render_template("login_operari.html", operaris=carregar_operaris(), error_auth=1)
 
 @operari_bp.route("/validar_codi_recuperacio", methods=["POST"])
 def validar_codi_recuperacio():
