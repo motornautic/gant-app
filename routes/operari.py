@@ -158,11 +158,13 @@ def vista_operari():
     if operari_sel:
         session["operari_autenticat"] = operari_sel
 
-    if not operari_sel and not es_admin:
-        return render_template("login_operari.html", operaris=operaris, operari_sel=None, error=request.args.get("error_auth"))
-
-    if es_admin and not operari_sel:
-        operari_sel = operaris[0] if operaris else None
+    # Si NO hi ha cap operari seleccionat ni guardat, demanem selecció/login d'operari
+    if not operari_sel:
+        if es_admin and operaris:
+            operari_sel = operaris[0]
+            session["operari_autenticat"] = operari_sel
+        else:
+            return render_template("login_operari.html", operaris=operaris, operari_sel=None, error=request.args.get("error_auth"))
 
     confirm_idx = request.args.get("confirm_idx", type=int)
     edit_reg_info = {"task_idx": request.args.get("edit_task_idx", type=int), "reg_idx": request.args.get("edit_reg_idx", type=int)}
@@ -241,6 +243,7 @@ def vista_operari():
 
     now_date = datetime.now().strftime("%Y-%m-%d")
 
+    # 🎯 ATENCIÓ: ARA CARREGA SEMPRE 'operari.html' PER AL PANELL MÒBIL D'OPERARIS
     response = make_response(render_template(
         "operari.html", 
         operaris=operaris, 
@@ -433,7 +436,7 @@ def registrar_sollicitud_material():
                 return redirect(url_wa)
             elif via == "Email":
                 subject = f"Sol·licitud de Recanvi: {embarcacio} - {tasca_titol}"
-                body = f"SOL·LICITUD DE RECANVI\n\nEmbarcació: {embarcacio}\nTasca: {tasca_titol}\nOperari: {operari_sel}\n\nMaterial Sol·licitated:\n{material_text}"
+                body = f"SOL·LICITUD DE RECANVI\n\nEmbarcació: {embarcacio}\nTasca: {tasca_titol}\nOperari: {operari_sel}\n\nMaterial Sol·licitat:\n{material_text}"
                 url_mail = f"mailto:admin@motornautic.com?subject={urllib.parse.quote(subject)}&body={urllib.parse.quote(body)}"
                 return redirect(url_mail)
 
@@ -711,6 +714,7 @@ def eliminar_material_no_subministrat():
         return redirect(url_for("operari.vista_operari", operari=operari_sel))
     else:
         return redirect(request.referrer or url_for("operari.vista_operari"))
+
 
 
 
