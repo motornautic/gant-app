@@ -1,609 +1,190 @@
 {% extends "base.html" %}
-
 {% block content %}
-<!-- LLIBRERIA TOM-SELECT PER A DESPLEGABLES D'OPERARIS SENSE SCROLL MOLEST -->
-<link href="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/css/tom-select.css" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/js/tom-select.complete.min.js"></script>
-
-<div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+<div class="max-w-6xl mx-auto space-y-5">
+  <div class="rounded-2xl bg-blue-900 text-white p-5 shadow flex flex-wrap items-center justify-between gap-3">
     <div>
-        <h2 class="text-xl font-bold text-slate-800">📋 Tauler de Tasques i Manteniments</h2>
-        <p class="text-xs text-slate-500 font-medium">Gestió de treballs per columnes segons l'estat d'execució</p>
+      <p class="text-xs uppercase tracking-wider text-blue-200 font-bold">Panell de treball</p>
+      <h2 class="text-2xl font-bold">👷 {{ operari_sel }}</h2>
+      <p class="text-sm text-blue-100">Les meves tasques assignades</p>
     </div>
-
-    <!-- 🎯 FILTRE PER VISTA D'ESTAT CONCRET -->
-    <div class="inline-flex rounded-lg shadow-sm bg-slate-200/80 p-1 space-x-1 overflow-x-auto" role="group" id="filtre-estats-container">
-        <button onclick="filtrarVistaEstat('TOTS')" id="btn-filtre-tots" class="px-3 py-1.5 text-xs font-bold rounded-md bg-white text-blue-900 shadow-sm transition whitespace-nowrap">
-            🌐 Totes
-        </button>
-        <button onclick="filtrarVistaEstat('Pressupost')" id="btn-filtre-Pressupost" class="px-3 py-1.5 text-xs font-bold rounded-md text-slate-700 hover:text-slate-900 transition whitespace-nowrap">
-            💶 Pressupost
-        </button>
-        <button onclick="filtrarVistaEstat('Pendent')" id="btn-filtre-Pendent" class="px-3 py-1.5 text-xs font-bold rounded-md text-slate-700 hover:text-slate-900 transition whitespace-nowrap">
-            ⏳ Pendents
-        </button>
-        <button onclick="filtrarVistaEstat('En Curs')" id="btn-filtre-En Curs" class="px-3 py-1.5 text-xs font-bold rounded-md text-slate-700 hover:text-slate-900 transition whitespace-nowrap">
-            🔧 En Curs
-        </button>
-        <button onclick="filtrarVistaEstat('Esperant Recanvi')" id="btn-filtre-Esperant Recanvi" class="px-3 py-1.5 text-xs font-bold rounded-md text-slate-700 hover:text-slate-900 transition whitespace-nowrap">
-            📦 Recanvis
-        </button>
-        <button onclick="filtrarVistaEstat('Finalitzada')" id="btn-filtre-Finalitzada" class="px-3 py-1.5 text-xs font-bold rounded-md text-slate-700 hover:text-slate-900 transition whitespace-nowrap">
-            ✅ Acabades
-        </button>
+    <div class="flex gap-2 items-center">
+      <span class="bg-blue-700 px-3 py-2 rounded-lg text-sm font-bold">{{ tasques|length }} tasques</span>
+      <form action="{{ url_for('operari.logout_operari') }}" method="POST">
+        <button class="bg-white text-blue-900 px-3 py-2 rounded-lg text-sm font-bold" type="submit">Sortir d'operari</button>
+      </form>
     </div>
-</div>
+  </div>
 
-<!-- 👷 GESTIÓ D'OPERARIS (NOMÉS ADMINISTRACIÓ) -->
-<div class="mb-4">
-    <button onclick="document.getElementById('modal-gestio-operaris').classList.toggle('hidden')" class="bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold px-3 py-2 rounded-lg shadow flex items-center space-x-1.5">
-        <span>👷 Gestió d'Operaris</span>
-    </button>
-</div>
+  {% if request.args.get('pwd_ok') %}<div class="p-3 bg-green-100 text-green-900 rounded-lg">Contrasenya actualitzada.</div>{% endif %}
+  {% if request.args.get('pwd_err') %}<div class="p-3 bg-red-100 text-red-900 rounded-lg">No s'ha pogut canviar la contrasenya. Comprova les dades.</div>{% endif %}
 
-<!-- MODAL DESPLEGABLE DE GESTIÓ D'OPERARIS -->
-<div id="modal-gestio-operaris" class="hidden bg-white p-4 rounded-xl border shadow-lg mb-6 max-w-lg">
-    <h3 class="text-sm font-bold text-slate-800 border-b pb-2 mb-3">👷 Administració d'Operaris</h3>
-    
-    <form action="/afegir_operari" method="POST" class="flex items-center space-x-2 mb-4">
-        <input type="hidden" name="redirect_to" value="tasques">
-        <input type="text" name="nom_operari" required placeholder="Nom del nou operari (Ex: JOAN)" class="flex-1 p-2 rounded text-xs border bg-slate-50 font-bold text-slate-800">
-        <button type="submit" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-3 py-2 rounded text-xs shadow">
-            ➕ Crear Operari
-        </button>
-    </form>
-
-    <div class="space-y-1 max-h-40 overflow-y-auto pr-1">
-        {% for op in operaris %}
-        <div class="flex justify-between items-center bg-slate-50 p-2 rounded border text-xs">
-            <span class="font-bold text-slate-700">👷 {{ op }}</span>
-            <span class="text-[10px] text-slate-400">Contrasenya inicial: <strong>{{ op }}</strong></span>
-        </div>
-        {% endfor %}
+  <details class="bg-white rounded-xl border shadow-sm p-4">
+    <summary class="font-bold cursor-pointer">👤 El meu perfil i contrasenya</summary>
+    <div class="mt-4 grid md:grid-cols-2 gap-5 text-sm">
+      <div class="space-y-2">
+        <p><strong>Nom:</strong> {{ perfil.Nom }}</p>
+        <p><strong>Cognoms:</strong> {{ perfil.Cognoms or '—' }}</p>
+        <p><strong>Telèfon:</strong> {{ perfil.Telefon or '—' }}</p>
+        <p><strong>Correu:</strong> {{ perfil.Email or '—' }}</p>
+      </div>
+      <form action="{{ url_for('operari.canviar_contrasenya') }}" method="POST" class="space-y-2">
+        <input type="hidden" name="operari_sel" value="{{ operari_sel }}">
+        <label class="block font-semibold">Contrasenya actual<input class="block w-full border rounded-lg p-2 mt-1" type="password" name="pwd_actual" required autocomplete="current-password"></label>
+        <label class="block font-semibold">Nova contrasenya<input class="block w-full border rounded-lg p-2 mt-1" type="password" name="pwd_nova" required autocomplete="new-password"></label>
+        <button class="bg-blue-700 text-white rounded-lg px-4 py-2 font-bold" type="submit">Canviar contrasenya</button>
+      </form>
     </div>
-</div>
+  </details>
 
-<!-- FORMULARI AFEGIR NOVA TASCA -->
-<details class="bg-white p-4 rounded-xl shadow mb-6 border">
-    <summary class="font-bold cursor-pointer text-blue-900 text-sm">➕ Crear Nova Tasca / Ordre de Treball</summary>
-    
-    <form action="/afegir_tasca" method="POST" class="mt-4 space-y-4">
-        <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-3">
-            <div class="lg:col-span-2">
-                <label class="block text-xs font-bold mb-1">Títol de la Tasca *</label>
-                <input type="text" name="titol" required placeholder="Ex: Revisió 200h + canvi d'oli" class="w-full p-2 border rounded text-xs bg-slate-50">
-            </div>
-            
-            <div class="lg:col-span-2">
-                <label class="block text-xs font-bold mb-1">Embarcació Vinculada *</label>
-                <select name="embarcacio" required class="w-full p-2 border rounded text-xs bg-slate-50 font-semibold">
-                    <option value="">-- Selecciona Embarcació --</option>
-                    {% for e in embarcacions %}
-                        <option value="{{ e }}">{{ e }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-
-            <div>
-                <label class="block text-xs font-bold mb-1">📅 Data Inici</label>
-                <input type="date" name="data_inici" class="w-full p-2 border rounded text-xs bg-slate-50 font-semibold">
-            </div>
-
-            <div>
-                <label class="block text-xs font-bold mb-1">📅 Data Fi Prevista</label>
-                <input type="date" name="data_fi" class="w-full p-2 border rounded text-xs bg-slate-50 font-semibold">
-            </div>
-
-            <!-- 👷 DESPLEGABLE D'OPERARIS -->
-            <div class="lg:col-span-3">
-                <label class="block text-xs font-bold mb-1">Operaris Assignats</label>
-                <select name="operaris" id="selectOperarisCrear" multiple placeholder="Cerca o selecciona operaris..." class="w-full p-2 border rounded text-xs bg-slate-50 font-semibold">
-                    {% for op in operaris %}
-                        <option value="{{ op }}">{{ op }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-
-            <div class="lg:col-span-3">
-                <label class="block text-xs font-bold mb-1">Prioritat / Estat Inicial</label>
-                <div class="grid grid-cols-2 gap-2">
-                    <select name="prioritat" class="w-full p-2 border rounded text-xs bg-slate-50 font-bold">
-                        <option value="Normal">🟢 Normal</option>
-                        <option value="Urgent">🔴 URGENT</option>
-                    </select>
-                    <select name="estat_inicial" class="w-full p-2 border rounded text-xs bg-slate-50 font-bold">
-                        <option value="Pendent">⏳ Pendent</option>
-                        <option value="Pressupost">💶 Pressupost</option>
-                    </select>
-                </div>
-            </div>
-        </div>
-
+  {% if tasques %}
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+    {% for t in tasques %}
+    <article class="bg-white border rounded-2xl shadow-sm p-4 space-y-4" id="tasca-{{ t.csv_index }}">
+      <div class="flex items-start justify-between gap-3">
         <div>
-            <label class="block text-xs font-bold mb-1">Descripció del treball a fer</label>
-            <textarea name="detall" rows="2" placeholder="Detalla les tasques, peces a canviar o observacions..." class="w-full p-2 border rounded text-xs bg-slate-50"></textarea>
+          <p class="text-sm text-blue-800 font-bold">⛵ {{ t.Embarcació }}</p>
+          <h3 class="text-lg font-extrabold text-slate-900">{{ t.Titol_Tasca }}</h3>
+          <p class="text-xs text-slate-500 mt-1">Inici: {{ t.Data_Inici|format_data }} · Fi: {{ (t.Data_Fi|format_data) if t.Data_Fi else 'Sense data' }}</p>
         </div>
+        <span class="shrink-0 text-xs font-bold px-2 py-1 rounded-lg {% if t.Estat == 'Finalitzada' %}bg-green-100 text-green-800{% elif t.Estat == 'Esperant Recanvi' %}bg-amber-100 text-amber-800{% elif t.Estat == 'En Curs' %}bg-blue-100 text-blue-800{% else %}bg-slate-100 text-slate-800{% endif %}">{{ t.Estat }}</span>
+      </div>
+      {% if t.Prioritat == 'Urgent' %}<p class="bg-red-100 text-red-800 font-bold text-xs rounded p-2">🔴 TASCA URGENT</p>{% endif %}
+      {% if t.Tasques_Detall %}
+      <div class="bg-slate-50 rounded-lg p-3">
+        <p class="text-xs font-bold text-slate-600 mb-2">Treballs previstos</p>
+        {% for item in t.checklist %}
+          <p class="text-sm py-1 {% if item.fet %}line-through text-green-700{% else %}text-slate-800{% endif %}">{% if item.fet %}✅{% else %}☐{% endif %} {{ item.text }}</p>
+        {% else %}<p class="text-sm whitespace-pre-wrap">{{ t.Tasques_Detall }}</p>{% endfor %}
+      </div>
+      {% endif %}
 
-        <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg text-xs shadow">
-            💾 Desar Nova Tasca
-        </button>
-    </form>
-</details>
-
-<!-- TAULER KANBAN DE TARGETES -->
-<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 transition-all duration-300" id="kanban-grid">
-    {% set estats_config = [
-        ('Pressupost', 'bg-purple-100 text-purple-900', 'border-purple-400'),
-        ('Pendent', 'bg-slate-200 text-slate-800', 'border-slate-300'),
-        ('En Curs', 'bg-blue-100 text-blue-900', 'border-blue-400'),
-        ('Esperant Recanvi', 'bg-amber-100 text-amber-900', 'border-amber-400'),
-        ('Finalitzada', 'bg-emerald-100 text-emerald-900', 'border-emerald-400')
-    ] %}
-
-    {% for estat, header_color, border_color in estats_config %}
-    <div class="columna-kanban bg-slate-100/70 p-3 rounded-xl border flex flex-col h-full min-h-[450px]" data-estat="{{ estat }}">
-        
-        {% set tasques_estat = [] %}
-        {% for t in tasques %}
-            {% if t.Estat == estat %}{% set _ = tasques_estat.append(t) %}{% endif %}
-        {% endfor %}
-
-        <div class="flex justify-between items-center p-2 rounded-lg {{ header_color }} font-bold text-xs mb-3 shadow-sm">
-            <span>
-                {% if estat == 'Pressupost' %}💶
-                {% elif estat == 'Pendent' %}⏳
-                {% elif estat == 'En Curs' %}🔧
-                {% elif estat == 'Esperant Recanvi' %}📦
-                {% elif estat == 'Finalitzada' %}✅{% endif %}
-                {{ estat }}
-            </span>
-            <span class="bg-white/80 text-slate-800 px-2 py-0.5 rounded-full text-[10px]">
-                {{ tasques_estat|length }}
-            </span>
-        </div>
-
-        <div class="space-y-3 flex-1 overflow-y-auto">
-            {% if tasques_estat %}
-                {% for t in tasques_estat %}
-                {% set es_sense_data = not t.Data_Inici and estat == 'Pendent' %}
-                
-                <!-- TARGETA DE TASCA -->
-                <div class="bg-white p-3 rounded-lg shadow-sm border-l-4 transition relative 
-                    {% if es_sense_data %}ring-2 ring-amber-400 border-dashed border-amber-500 bg-amber-50/20{% elif t.Prioritat == 'Urgent' %}border-2 border-red-500 bg-red-50/30 shadow-red-100{% else %}{{ border_color }}{% endif %}">
-                    
-                    <div class="flex justify-between items-start mb-1 gap-1">
-                        <span class="font-bold text-blue-900 text-xs truncate max-w-[130px]">⛵ {{ t.Embarcació }}</span>
-                        
-                        <div class="flex items-center space-x-1">
-                            {% if t.Prioritat == 'Urgent' %}
-                                <span class="bg-red-600 text-white font-bold px-1.5 py-0.5 rounded-full text-[9px] shadow animate-pulse flex items-center space-x-1">
-                                    <span class="w-1.5 h-1.5 rounded-full bg-white inline-block"></span>
-                                    <span>🔴 URGENT</span>
-                                </span>
-                            {% endif %}
-
-                            <a href="/tasques?edit_idx={{ t.csv_index }}" class="p-1 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded transition text-xs font-bold" title="Editar Tasca">
-                                ✏️
-                            </a>
-                        </div>
-                    </div>
-
-                    <h4 class="font-bold text-slate-800 text-xs mb-1">{{ t.Titol_Tasca }}</h4>
-
-                    <!-- ⏱️ INSÍGNIA DE CRONÒMETRE ACTIU PER A L'ADMINISTRADOR -->
-                    {% if t.operaris_cronos_actius %}
-                    <div class="my-2 bg-emerald-100 border border-emerald-400 text-emerald-900 px-2 py-1 rounded-lg text-xs font-bold flex items-center justify-between shadow-sm animate-pulse">
-                        <span class="flex items-center space-x-1">
-                            <span class="text-sm">⏱️</span>
-                            <span>TREBALLANT ARA:</span>
-                        </span>
-                        <span class="bg-emerald-600 text-white px-2 py-0.5 rounded text-[10px] uppercase font-black tracking-wide">
-                            {{ t.operaris_cronos_actius|join(', ') }}
-                        </span>
-                    </div>
-                    {% endif %}
-
-                    {% if t.Tasques_Detall %}
-                        <p class="text-[11px] text-slate-600 mb-2 line-clamp-2">{{ t.Tasques_Detall }}</p>
-                    {% endif %}
-
-                    <!-- BLOC D'INFORMACIÓ I DATES FORMATADES -->
-                    <div class="text-[10px] text-slate-500 space-y-1 border-t pt-1.5 mb-2">
-                        <div>👨‍🔧 Operari: <strong class="text-slate-700">{{ t.Operari if t.Operari else 'Sense Assignar' }}</strong></div>
-                        
-                        {% if t.Data_Creacio %}
-                        <div>
-                            <span>📝 Creada el:</span>
-                            {% set c_parts = t.Data_Creacio.split('-') %}
-                            {% if c_parts|length == 3 %}
-                                <strong class="text-slate-600 font-semibold">{{ c_parts[2] }}/{{ c_parts[1] }}/{{ c_parts[0] }}</strong>
-                            {% else %}
-                                <strong class="text-slate-600 font-semibold">{{ t.Data_Creacio }}</strong>
-                            {% endif %}
-                        </div>
-                        {% endif %}
-
-                        <div class="flex items-center space-x-1">
-                            <span>📅 Data Inici:</span>
-                            {% if t.Data_Inici %}
-                                {% set d_parts = t.Data_Inici.split('-') %}
-                                {% if d_parts|length == 3 %}
-                                    <strong class="text-slate-800 bg-slate-100 px-1 py-0.5 rounded border text-[10px]">
-                                        {{ d_parts[2] }}/{{ d_parts[1] }}/{{ d_parts[0] }}
-                                    </strong>
-                                {% else %}
-                                    <strong class="text-slate-800 bg-slate-100 px-1 py-0.5 rounded border text-[10px]">
-                                        {{ t.Data_Inici }}
-                                    </strong>
-                                {% endif %}
-                            {% else %}
-                                <span class="text-amber-700 font-bold bg-amber-100 px-1.5 py-0.5 rounded border border-amber-300 text-[9px] flex items-center space-x-1">
-                                    <span>⚠️ Sense data (no surt al Gantt)</span>
-                                </span>
-                            {% endif %}
-                        </div>
-
-                        {% if t.hores_formatted %}
-                        <div>⏱️ Temps: <strong class="text-blue-900">{{ t.hores_formatted }}</strong></div>
-                        {% endif %}
-                    </div>
-
-                    <!-- ⚠️ BLOC DE MATERIAL NO SUBMINISTRAT -->
-                    {% if t.Material_No_Subministrat %}
-                    <div class="mb-2 bg-red-50 p-2 rounded-lg border border-red-200">
-                        <span class="text-[10px] font-bold text-red-800 flex items-center gap-1 mb-1">
-                            <span>⚠️ Mat. No Subministrat</span>
-                        </span>
-                        <div class="text-[10px] font-mono text-slate-700 bg-white p-1.5 rounded border border-red-200 whitespace-pre-line max-h-20 overflow-y-auto">
-                            {{ t.Material_No_Subministrat }}
-                        </div>
-                    </div>
-                    {% endif %}
-
-                    <!-- ACCIÓ I CHECK PER A PRESSUPOSTOS -->
-                    {% if estat == 'Pressupost' %}
-                    <div class="mb-2 space-y-1.5 bg-purple-50 p-2 rounded border border-purple-200">
-                        <form action="/toggle_pressupost_enviat" method="POST" class="flex items-center space-x-2">
-                            <input type="hidden" name="csv_index" value="{{ t.csv_index }}">
-                            <input type="checkbox" 
-                                   id="chk_env_{{ t.csv_index }}" 
-                                   onchange="this.form.submit()" 
-                                   {% if t.Pressupost_Enviat == '1' %}checked{% endif %}
-                                   class="w-4 h-4 text-purple-600 rounded border-slate-300 focus:ring-purple-500 cursor-pointer">
-                            <label for="chk_env_{{ t.csv_index }}" class="text-[11px] font-bold cursor-pointer select-none {% if t.Pressupost_Enviat == '1' %}text-emerald-700{% else %}text-slate-600{% endif %}">
-                                {% if t.Pressupost_Enviat == '1' %}
-                                    📩 Pressupost Enviat
-                                {% else %}
-                                    📤 Marcar com a Enviat
-                                {% endif %}
-                            </label>
-                        </form>
-
-                        <form action="/aprovar_pressupost" method="POST">
-                            <input type="hidden" name="csv_index" value="{{ t.csv_index }}">
-                            <button type="submit" onclick="return confirm('Aprovar aquest pressupost i passar la tasca a Pendents?');" class="w-full bg-purple-700 hover:bg-purple-800 text-white font-bold py-1.5 px-2 rounded text-[10px] shadow flex items-center justify-center space-x-1">
-                                <span>✅ Validar Pressupost ➔ Pendents</span>
-                            </button>
-                        </form>
-                    </div>
-                    {% endif %}
-
-                    <div class="flex justify-between items-center border-t pt-2 mt-1 gap-1">
-                        <a href="/tasques?view_idx={{ t.csv_index }}" class="bg-blue-100 hover:bg-blue-200 text-blue-800 text-[10px] px-2 py-1 rounded font-bold flex items-center space-x-1 shadow-sm" title="Veure Resum Unificat">
-                            <span>👁️</span>
-                            <span>Vista</span>
-                        </a>
-
-                        <form action="/canviar_estat_tasca" method="POST" class="flex-1">
-                            <input type="hidden" name="csv_index" value="{{ t.csv_index }}">
-                            <select name="nou_estat" onchange="this.form.submit()" class="w-full p-1 text-[10px] border rounded bg-slate-50 font-bold text-slate-700">
-                                <option value="Pressupost" {% if estat == 'Pressupost' %}selected{% endif %}>💶 Pressupost</option>
-                                <option value="Pendent" {% if estat == 'Pendent' %}selected{% endif %}>⏳ Pendent</option>
-                                <option value="En Curs" {% if estat == 'En Curs' %}selected{% endif %}>🔧 En Curs</option>
-                                <option value="Esperant Recanvi" {% if estat == 'Esperant Recanvi' %}selected{% endif %}>📦 Recanvi</option>
-                                <option value="Finalitzada" {% if estat == 'Finalitzada' %}selected{% endif %}>✅ Acabat</option>
-                            </select>
-                        </form>
-
-                        {% if t.Estat == 'Finalitzada' %}
-                        <form action="/arxivar_tasca" method="POST" class="inline">
-                            <input type="hidden" name="csv_index" value="{{ t.csv_index }}">
-                            <input type="hidden" name="redirect_to" value="tasques">
-                            <button type="submit" onclick="return confirm('Vols enviar aquesta tasca a l\'Arxiu?');" class="bg-slate-700 hover:bg-slate-800 text-white font-bold p-1 rounded text-[10px] shadow" title="Arxivar Tasca">
-                                📥
-                            </button>
-                        </form>
-                        {% endif %}
-                        
-                        <form action="/eliminar_tasca" method="POST" onsubmit="return confirm('Segur que vols eliminar aquesta tasca?');">
-                            <input type="hidden" name="csv_index" value="{{ t.csv_index }}">
-                            <button type="submit" class="text-slate-400 hover:text-red-600 p-1 rounded" title="Eliminar Tasca">🗑️</button>
-                        </form>
-                    </div>
-                </div>
-                {% endfor %}
-            {% else %}
-                <div class="p-4 text-center text-slate-400 text-[11px] border border-dashed rounded-lg">
-                    Sense tasques
-                </div>
-            {% endif %}
-        </div>
-    </div>
-    {% endfor %}
-</div>
-
-<!-- MODAL EDICIÓ RÀPIDA DE TASCA -->
-{% if tasca_edit %}
-<div class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-    <div class="bg-white rounded-2xl shadow-2xl max-w-xl w-full max-h-[90vh] overflow-y-auto border border-slate-200">
-        <div class="bg-amber-600 text-white p-4 rounded-t-2xl flex justify-between items-center sticky top-0 z-10">
-            <h3 class="text-sm font-bold">✏ Editant Tasca: {{ tasca_edit.Titol_Tasca }}</h3>
-            <a href="/tasques" class="text-white hover:text-amber-200 text-xl font-bold p-1">❌</a>
-        </div>
-
-        <form action="/editar_tasca" method="POST" class="p-5 space-y-4">
-            <input type="hidden" name="csv_index" value="{{ tasca_edit.csv_index }}">
-
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div class="md:col-span-2">
-                    <label class="block text-xs font-bold mb-1">Títol de la Tasca *</label>
-                    <input type="text" name="titol" value="{{ tasca_edit.Titol_Tasca }}" required class="w-full p-2 border rounded text-xs bg-slate-50 font-bold">
-                </div>
-
-                <div>
-                    <label class="block text-xs font-bold mb-1">Embarcació Vinculada *</label>
-                    <select name="embarcacio" required class="w-full p-2 border rounded text-xs bg-slate-50 font-semibold">
-                        {% for e in embarcacions %}
-                            <option value="{{ e }}" {% if e == tasca_edit.Embarcació %}selected{% endif %}>{{ e }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-
-                <div>
-                    <label class="block text-xs font-bold mb-1">Prioritat</label>
-                    <select name="prioritat" class="w-full p-2 border rounded text-xs bg-slate-50 font-bold">
-                        <option value="Normal" {% if tasca_edit.Prioritat == 'Normal' %}selected{% endif %}>🟢 Normal</option>
-                        <option value="Urgent" {% if tasca_edit.Prioritat == 'Urgent' %}selected{% endif %}>🔴 URGENT</option>
-                    </select>
-                </div>
-
-                <div>
-                    <label class="block text-xs font-bold mb-1">📅 Data Inici</label>
-                    <input type="date" name="data_inici" value="{{ tasca_edit.Data_Inici if tasca_edit.Data_Inici else '' }}" class="w-full p-2 border rounded text-xs bg-slate-50 font-semibold">
-                </div>
-
-                <div>
-                    <label class="block text-xs font-bold mb-1">📅 Data Fi Prevista</label>
-                    <input type="date" name="data_fi" value="{{ tasca_edit.Data_Fi if tasca_edit.Data_Fi else '' }}" class="w-full p-2 border rounded text-xs bg-slate-50 font-semibold">
-                </div>
-
-                <div class="md:col-span-2">
-                    <label class="block text-xs font-bold mb-1">Operaris Assignats</label>
-                    {% set ops_assignats = tasca_edit.Operari.split(',') if tasca_edit.Operari else [] %}
-                    <select name="operaris" id="selectOperarisEdit" multiple placeholder="Cerca o selecciona operaris..." class="w-full p-2 border rounded text-xs bg-slate-50 font-semibold">
-                        {% for op in operaris %}
-                            <option value="{{ op }}" {% if op.strip() in ops_assignats %}selected{% endif %}>{{ op }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-            </div>
-
-            <div>
-                <label class="block text-xs font-bold mb-1">Descripció del treball</label>
-                <textarea name="detall" rows="3" class="w-full p-2 border rounded text-xs bg-slate-50">{{ tasca_edit.Tasques_Detall }}</textarea>
-            </div>
-
-            <div class="flex justify-end space-x-2 border-t pt-3">
-                <a href="/tasques" class="bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold px-3 py-2 rounded text-xs">Cancel·lar</a>
-                <button type="submit" class="bg-amber-600 hover:bg-amber-700 text-white font-bold px-4 py-2 rounded text-xs shadow">💾 Desar Canvis</button>
-            </div>
+      <div class="rounded-xl border p-3 space-y-3">
+        <p class="text-sm font-bold">⏱️ Control de temps <span class="text-blue-800">{{ t.hores_formatted }}</span></p>
+        {% if t.crono_actiu_operari %}
+        <div class="bg-green-100 text-green-900 text-sm font-bold rounded-lg p-2">🟢 Cronòmetre en marxa des de {{ t.crono_actiu_operari }}</div>
+        <form action="{{ url_for('operari.aturar_crono') }}" method="POST">
+          <input type="hidden" name="csv_index" value="{{ t.csv_index }}"><input type="hidden" name="operari_sel" value="{{ operari_sel }}">
+          <button type="submit" class="w-full bg-red-600 text-white font-bold rounded-lg p-3">⏹️ Aturar cronòmetre</button>
         </form>
-    </div>
+        {% else %}
+        <form action="{{ url_for('operari.iniciar_crono') }}" method="POST">
+          <input type="hidden" name="csv_index" value="{{ t.csv_index }}"><input type="hidden" name="operari_sel" value="{{ operari_sel }}">
+          <button type="submit" class="w-full bg-emerald-600 text-white font-bold rounded-lg p-3">▶️ Iniciar cronòmetre</button>
+        </form>
+        {% endif %}
+        <details><summary class="text-sm font-semibold cursor-pointer">➕ Afegir hores manualment</summary>
+          <form action="{{ url_for('operari.afegir_temps_manual') }}" method="POST" class="mt-3 grid grid-cols-2 gap-2 text-sm">
+            <input type="hidden" name="csv_index" value="{{ t.csv_index }}"><input type="hidden" name="operari_sel" value="{{ operari_sel }}">
+            <label class="col-span-2">Data<input type="date" name="data_imputacio" value="{{ now_date }}" class="block w-full border rounded p-2"></label>
+            <label>Hora inici<input type="time" name="hora_inici" required class="block w-full border rounded p-2"></label>
+            <label>Hora fi<input type="time" name="hora_fi" required class="block w-full border rounded p-2"></label>
+            <label class="col-span-2 flex gap-2 items-center"><input type="checkbox" name="marcar_finalitzada" value="1"> Marcar tasca finalitzada</label>
+            <button class="col-span-2 bg-blue-700 text-white p-2 rounded-lg font-bold" type="submit">Desar hores</button>
+          </form>
+        </details>
+        {% if t.historial_hores %}
+        <details><summary class="text-sm font-semibold cursor-pointer">Historial d'hores ({{ t.historial_hores|length }})</summary>
+          <div class="mt-2 space-y-2">
+          {% for h in t.historial_hores %}
+          <div class="flex items-center justify-between gap-2 text-xs bg-slate-50 rounded p-2">
+            <span>{{ h.operari }} · {{ h.data }} · {{ h.inici }}–{{ h.fi }} · <strong>{{ h.total }}</strong></span>
+            {% if es_admin or h.operari|lower == operari_sel|lower %}
+            <form action="{{ url_for('operari.eliminar_registre_hora') }}" method="POST" onsubmit="return confirm('Vols eliminar aquest registre?');">
+              <input type="hidden" name="csv_index" value="{{ t.csv_index }}"><input type="hidden" name="operari_sel" value="{{ operari_sel }}"><input type="hidden" name="reg_index" value="{{ h.reg_index }}">
+              <button type="submit" class="text-red-700 font-bold">Eliminar</button>
+            </form>{% endif %}
+          </div>
+          {% endfor %}
+          </div>
+        </details>
+        {% endif %}
+      </div>
+
+      <details class="rounded-xl border p-3">
+        <summary class="text-sm font-bold cursor-pointer">📦 Demanar material / recanvis</summary>
+        <form action="{{ url_for('operari.registrar_sollicitud_material') }}" method="POST" class="mt-3 space-y-2">
+          <input type="hidden" name="csv_index" value="{{ t.csv_index }}"><input type="hidden" name="operari_sel" value="{{ operari_sel }}">
+          <textarea name="material_text" required rows="3" placeholder="Quin material necessites?" class="w-full border rounded-lg p-2 text-sm"></textarea>
+          <select name="via" class="w-full border rounded-lg p-2 text-sm"><option value="WhatsApp">WhatsApp</option><option value="Email">Correu electrònic</option></select>
+          <button class="bg-amber-600 text-white rounded-lg p-2 w-full font-bold text-sm" type="submit">Enviar sol·licitud</button>
+        </form>
+        {% if t.historial_material %}
+        <h4 class="text-xs font-bold mt-4 mb-2">Sol·licituds anteriors</h4>
+        {% for m in t.historial_material %}
+        <div class="border-t pt-2 pb-2 text-xs space-y-2">
+          <p>{{ m.data_hora }} · {{ m.via }} · <strong>{{ m.estat }}</strong></p><p class="whitespace-pre-wrap">{{ m.detall }}</p>
+          <form action="{{ url_for('operari.canviar_estat_material') }}" method="POST" class="flex gap-2">
+            <input type="hidden" name="csv_index" value="{{ t.csv_index }}"><input type="hidden" name="operari_sel" value="{{ operari_sel }}"><input type="hidden" name="mat_index" value="{{ m.mat_index }}">
+            <select name="nou_estat" class="border rounded p-1 flex-1"><option value="Pendent">Pendent</option><option value="Demanat">Demanat</option><option value="Rebut">Rebut</option>{% if es_admin %}<option value="Eliminar">Eliminar</option>{% endif %}</select>
+            <button class="bg-slate-800 text-white px-3 rounded" type="submit">Actualitzar</button>
+          </form>
+        </div>
+        {% endfor %}
+        {% endif %}
+      </details>
+
+      <details class="rounded-xl border p-3">
+        <summary class="text-sm font-bold cursor-pointer">⚠️ Material no subministrat</summary>
+        <form action="{{ url_for('operari.registrar_material_no_subministrat') }}" method="POST" class="mt-3 space-y-2 text-sm">
+          <input type="hidden" name="csv_index" value="{{ t.csv_index }}"><input type="hidden" name="operari_sel" value="{{ operari_sel }}">
+          <input name="referencia" list="llista-articles-{{ t.csv_index }}" placeholder="Referència o descripció" required class="border rounded-lg p-2 w-full">
+          <datalist id="llista-articles-{{ t.csv_index }}">{% for art in articles %}<option value="{{ art.ref }}">{{ art.etiqueta }}</option>{% endfor %}</datalist>
+          <label>Quantitat<input type="number" name="quantitat" value="1" min="1" class="border rounded-lg p-2 w-full"></label>
+          <button type="submit" class="bg-red-700 text-white px-3 py-2 rounded-lg font-bold w-full">Registrar material pendent</button>
+        </form>
+        {% for m in t.historial_mat_no_subministrat %}
+        <div class="mt-2 border-t pt-2 flex items-start justify-between gap-2 text-xs">
+          <span>{{ m.data_hora }} · {{ m.referencia }}</span>
+          {% if es_admin or m.operari|lower == operari_sel|lower %}
+          <form action="{{ url_for('operari.eliminar_material_no_subministrat') }}" method="POST" onsubmit="return confirm('Eliminar aquest material pendent?');">
+            <input type="hidden" name="csv_index" value="{{ t.csv_index }}"><input type="hidden" name="operari_sel" value="{{ operari_sel }}"><input type="hidden" name="mat_idx" value="{{ m.mat_idx }}">
+            <button class="text-red-700 font-bold" type="submit">Eliminar</button>
+          </form>{% endif %}
+        </div>
+        {% endfor %}
+      </details>
+
+      <details class="rounded-xl border p-3">
+        <summary class="text-sm font-bold cursor-pointer">📝 Notes de l'operari</summary>
+        <form action="{{ url_for('operari.guardar_notes_operari') }}" method="POST" class="mt-3 space-y-2">
+          <input type="hidden" name="csv_index" value="{{ t.csv_index }}"><input type="hidden" name="operari_sel" value="{{ operari_sel }}">
+          <textarea name="notes_operari" rows="3" class="border p-2 rounded-lg w-full text-sm">{{ t.Notes_Text or '' }}</textarea>
+          <button type="submit" class="bg-blue-700 text-white px-4 py-2 rounded-lg font-bold text-sm">Guardar notes</button>
+        </form>
+      </details>
+
+      <details class="rounded-xl border p-3">
+        <summary class="text-sm font-bold cursor-pointer">📷 Fotografies de l'embarcació</summary>
+        <form action="{{ url_for('operari.pujar_foto') }}" method="POST" enctype="multipart/form-data" class="mt-3 space-y-2">
+          <input type="hidden" name="csv_index" value="{{ t.csv_index }}"><input type="hidden" name="operari_sel" value="{{ operari_sel }}">
+          <input type="file" name="foto" accept="image/*" required class="w-full text-sm">
+          <button type="submit" class="bg-blue-700 text-white px-4 py-2 rounded-lg font-bold text-sm">Pujar fotografia</button>
+        </form>
+        {% if t.fotos %}<div class="grid grid-cols-2 gap-2 mt-3">{% for foto in t.fotos %}<a href="{{ foto }}" target="_blank" rel="noopener noreferrer"><img src="{{ foto }}" alt="Foto de l'embarcació" class="w-full h-32 object-cover rounded-lg border"></a>{% endfor %}</div>{% endif %}
+      </details>
+
+      <div class="flex gap-2">
+        {% if t.Estat == 'Finalitzada' %}
+        <form action="{{ url_for('operari.reobrir_tasca') }}" method="POST" class="flex-1">
+          <input type="hidden" name="csv_index" value="{{ t.csv_index }}"><input type="hidden" name="operari_sel" value="{{ operari_sel }}">
+          <button class="bg-slate-700 text-white p-3 rounded-lg font-bold text-sm w-full" type="submit">↩️ Reobrir tasca</button>
+        </form>
+        {% else %}
+        <form action="{{ url_for('operari.confirmar_finalitzacio') }}" method="POST" class="flex-1" onsubmit="return confirm('Confirmes que la tasca està finalitzada?');">
+          <input type="hidden" name="csv_index" value="{{ t.csv_index }}"><input type="hidden" name="operari_sel" value="{{ operari_sel }}"><input type="hidden" name="es_finalitzada" value="1">
+          <button class="bg-emerald-700 text-white p-3 rounded-lg font-bold text-sm w-full" type="submit">✅ Finalitzar tasca</button>
+        </form>
+        {% endif %}
+      </div>
+    </article>
+    {% endfor %}
+  </div>
+  {% else %}
+    <div class="bg-white rounded-xl border p-10 text-center shadow-sm"><p class="text-3xl mb-2">📋</p><p class="font-bold">No tens tasques visibles assignades.</p><p class="text-sm text-slate-500 mt-2">Les tasques han de tenir data d'inici, estar assignades al teu nom i no estar en Pressupost ni arxivades.</p></div>
+  {% endif %}
 </div>
-{% endif %}
-
-<!-- MODAL VISTA RESUM UNIFICAT -->
-{% if tasca_view %}
-<div class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-    <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto border border-slate-200">
-        
-        <div class="bg-slate-900 text-white p-4 rounded-t-2xl flex justify-between items-center sticky top-0 z-10">
-            <div>
-                <span class="text-[10px] bg-blue-500 text-white px-2 py-0.5 rounded font-bold uppercase tracking-wider">
-                    {{ tasca_view.Estat }}
-                </span>
-                <h3 class="text-base font-bold mt-1">⛵ {{ tasca_view.Embarcació }} - {{ tasca_view.Titol_Tasca }}</h3>
-            </div>
-            <a href="/tasques" class="text-slate-400 hover:text-white text-xl font-bold p-1">❌</a>
-        </div>
-
-        <div class="p-5 space-y-5 text-xs text-slate-700">
-            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-slate-50 p-3 rounded-xl border">
-                <div>
-                    <span class="block text-slate-400 font-semibold">📝 Data Creació</span>
-                    <span class="font-bold text-slate-800">{{ tasca_view.Data_Creacio if tasca_view.Data_Creacio else '-' }}</span>
-                </div>
-                <div>
-                    <span class="block text-slate-400 font-semibold">👷 Operaris Assignats</span>
-                    <span class="font-bold text-slate-800">{{ tasca_view.Operari if tasca_view.Operari else 'Sense assignar' }}</span>
-                </div>
-                <div>
-                    <span class="block text-slate-400 font-semibold">⏱️ Temps Total Acumulat</span>
-                    <span class="font-bold text-blue-900 text-sm">{{ tasca_view.hores_formatted }}</span>
-                </div>
-                <div>
-                    <span class="block text-slate-400 font-semibold">🚨 Prioritat</span>
-                    <span class="font-bold {% if tasca_view.Prioritat == 'Urgent' %}text-red-600{% else %}text-slate-700{% endif %}">
-                        {{ tasca_view.Prioritat }}
-                    </span>
-                </div>
-            </div>
-
-            <div>
-                <h4 class="font-bold text-slate-900 mb-2 flex items-center space-x-1">
-                    <span>⏱️ Historial d'Hores Imputades</span>
-                </h4>
-                {% if tasca_view.historial_hores %}
-                <div class="bg-slate-50 rounded-lg border divide-y overflow-hidden">
-                    {% for h in tasca_view.historial_hores %}
-                    <div class="p-2.5 flex justify-between items-center">
-                        <div class="flex items-center space-x-2">
-                            <span class="bg-slate-200 text-slate-800 text-[10px] font-bold px-2 py-0.5 rounded border">
-                                👷 {{ h.operari }}
-                            </span>
-                            <span class="font-bold text-slate-800">📅 {{ h.data }}</span>
-                            <span class="text-slate-500 text-[11px]">({{ h.inici }} - {{ h.fi }})</span>
-                        </div>
-                        <span class="bg-blue-100 text-blue-800 font-mono font-bold px-2 py-0.5 rounded text-xs">
-                            {{ h.total }}
-                        </span>
-                    </div>
-                    {% endfor %}
-                </div>
-                {% else %}
-                <p class="text-slate-400 italic bg-slate-50 p-2.5 rounded border">No hi ha hores imputades encara.</p>
-                {% endif %}
-            </div>
-
-            <div>
-                <h4 class="font-bold text-slate-900 mb-2 flex items-center space-x-1">
-                    <span>📦 Sol·licituds de Material / Recanvis</span>
-                </h4>
-                {% if tasca_view.historial_material %}
-                <div class="space-y-2">
-                    {% for mat in tasca_view.historial_material %}
-                    <div class="p-2.5 rounded-lg border flex justify-between items-center {% if mat.estat == 'Arribat' %}bg-emerald-50 border-emerald-200{% elif mat.estat == 'Demanat' %}bg-amber-50 border-amber-200{% else %}bg-slate-50 border-slate-200{% endif %}">
-                        <div>
-                            <div class="font-bold text-slate-800 text-xs">{{ mat.detall }}</div>
-                            <div class="text-[10px] text-slate-500">🗓️ {{ mat.data_hora }} via {{ mat.via }}</div>
-                        </div>
-            
-                        <form action="/canviar_estat_material" method="POST" class="inline">
-                            <input type="hidden" name="csv_index" value="{{ tasca_view.csv_index }}">
-                            <input type="hidden" name="mat_index" value="{{ mat.mat_index }}">
-                            <input type="hidden" name="redirect_to" value="tasques">
-                
-                            <select name="nou_estat" onchange="if(this.value === 'Eliminar' && !confirm('Segur que vols eliminar aquesta sol·licitud de material?')) { this.value='{{ mat.estat }}'; return false; } this.form.submit();" class="text-[11px] font-bold p-1 rounded border bg-white shadow-sm cursor-pointer">
-                                <option value="Pendent" {% if mat.estat == 'Pendent' %}selected{% endif %}>⏳ Pendent</option>
-                                <option value="Demanat" {% if mat.estat == 'Demanat' %}selected{% endif %}>📦 Demanat</option>
-                                <option value="Arribat" {% if mat.estat == 'Arribat' %}selected{% endif %}>✅ Arribat</option>
-                                <option value="Eliminar" class="text-red-600 font-bold">🗑️ Eliminar</option>
-                            </select>
-                        </form>
-                    </div>
-                    {% endfor %}
-                </div>
-                {% else %}
-                <p class="text-slate-400 italic bg-slate-50 p-2.5 rounded border">Sense peticions de recanvi.</p>
-                {% endif %}
-            </div>
-
-            {% if tasca_view.Material_No_Subministrat %}
-            <div>
-                <h4 class="font-bold text-red-900 mb-2 flex items-center space-x-1">
-                    <span>⚠️ Material No Subministrat / Referències Escanejades</span>
-                </h4>
-                <div class="bg-red-50 p-3 rounded-lg border border-red-200 text-xs font-mono text-slate-800 whitespace-pre-line">
-                    {{ tasca_view.Material_No_Subministrat }}
-                </div>
-            </div>
-            {% endif %}
-
-            {% if tasca_view.Tasques_Detall or tasca_view.Notes_Text %}
-            <div class="bg-amber-50/60 border border-amber-200 p-3 rounded-xl space-y-2">
-                {% if tasca_view.Tasques_Detall %}
-                <div>
-                    <span class="font-bold text-amber-900 block">📝 Detall Inicial de la Tasca:</span>
-                    <p class="text-slate-700">{{ tasca_view.Tasques_Detall }}</p>
-                </div>
-                {% endif %}
-                {% if tasca_view.Notes_Text %}
-                <div>
-                    <span class="font-bold text-amber-900 block">👷 Notes Tècniques de l'Operari:</span>
-                    <p class="text-slate-700 whitespace-pre-line">{{ tasca_view.Notes_Text }}</p>
-                </div>
-                {% endif %}
-            </div>
-            {% endif %}
-
-            {% if tasca_view.fotos %}
-            <div>
-                <h4 class="font-bold text-slate-900 mb-2">📷 Fotografies Adjuntes ({{ tasca_view.fotos|length }})</h4>
-                <div class="grid grid-cols-3 gap-2">
-                    {% for foto in tasca_view.fotos %}
-                    <a href="{{ foto }}" target="_blank" class="block aspect-square rounded-lg overflow-hidden border bg-slate-100 hover:opacity-90">
-                        <img src="{{ foto }}" class="w-full h-full object-cover">
-                    </a>
-                    {% endfor %}
-                </div>
-            </div>
-            {% endif %}
-
-        </div>
-
-        <div class="p-4 border-t bg-slate-50 rounded-b-2xl flex justify-end">
-            <a href="/tasques" class="bg-slate-800 hover:bg-slate-900 text-white font-bold px-4 py-2 rounded-lg text-xs">
-                Tancar Vista
-            </a>
-        </div>
-
-    </div>
-</div>
-{% endif %}
-
-<script>
-document.addEventListener("DOMContentLoaded", function() {
-    if (document.getElementById("selectOperarisCrear")) {
-        new TomSelect("#selectOperarisCrear", {
-            plugins: ['remove_button'],
-            create: false,
-            placeholder: "Cerca o tria operaris...",
-            maxItems: null
-        });
-    }
-
-    if (document.getElementById("selectOperarisEdit")) {
-        new TomSelect("#selectOperarisEdit", {
-            plugins: ['remove_button'],
-            create: false,
-            placeholder: "Cerca o tria operaris...",
-            maxItems: null
-        });
-    }
-});
-
-function filtrarVistaEstat(estatDemanat) {
-    const grid = document.getElementById('kanban-grid');
-    const columnes = document.querySelectorAll('.columna-kanban');
-    const botons = document.querySelectorAll('#filtre-estats-container button');
-
-    botons.forEach(btn => {
-        btn.classList.remove('bg-white', 'text-blue-900', 'shadow-sm');
-        btn.classList.add('text-slate-700');
-    });
-
-    const btnActiu = document.getElementById(estatDemanat === 'TOTS' ? 'btn-filtre-tots' : 'btn-filtre-' + estatDemanat);
-    if (btnActiu) {
-        btnActiu.classList.add('bg-white', 'text-blue-900', 'shadow-sm');
-        btnActiu.classList.remove('text-slate-700');
-    }
-
-    if (estatDemanat === 'TOTS') {
-        grid.className = "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 transition-all duration-300";
-        columnes.forEach(col => col.classList.remove('hidden'));
-    } else {
-        grid.className = "grid grid-cols-1 gap-4 transition-all duration-300 max-w-2xl mx-auto";
-        columnes.forEach(col => {
-            if (col.dataset.estat === estatDemanat) {
-                col.classList.remove('hidden');
-            } else {
-                col.classList.add('hidden');
-            }
-        });
-    }
-}
-</script>
 {% endblock %}
+
 
 
 
