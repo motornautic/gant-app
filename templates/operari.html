@@ -62,10 +62,20 @@
         <p class="text-sm font-bold">⏱️ Control de temps <span class="text-blue-800">{{ t.hores_formatted }}</span></p>
         {% if t.crono_actiu_operari %}
         <div class="bg-green-100 text-green-900 text-sm font-bold rounded-lg p-2">🟢 Cronòmetre en marxa des de {{ t.crono_actiu_operari }}</div>
-        <form action="{{ url_for('operari.aturar_crono') }}" method="POST">
-          <input type="hidden" name="csv_index" value="{{ t.csv_index }}"><input type="hidden" name="operari_sel" value="{{ operari_sel }}">
-          <button type="submit" class="w-full bg-red-600 text-white font-bold rounded-lg p-3">⏹️ Aturar cronòmetre</button>
-        </form>
+        <button type="button" onclick="document.getElementById('modal-aturar-{{ t.csv_index }}').showModal()" class="w-full bg-red-600 text-white font-bold rounded-lg p-3">⏹️ Aturar cronòmetre</button>
+        <dialog id="modal-aturar-{{ t.csv_index }}" class="rounded-2xl p-0 shadow-2xl w-[calc(100%-2rem)] max-w-sm backdrop:bg-slate-900/70">
+          <div class="p-5 space-y-4">
+            <h4 class="font-bold text-lg text-slate-900">⏹️ Aturar cronòmetre</h4>
+            <p class="text-sm text-slate-600">Què vols fer amb la tasca <strong>{{ t.Titol_Tasca }}</strong>?</p>
+            <form action="{{ url_for('operari.aturar_crono') }}" method="POST" class="space-y-3">
+              <input type="hidden" name="csv_index" value="{{ t.csv_index }}">
+              <input type="hidden" name="operari_sel" value="{{ operari_sel }}">
+              <button type="submit" name="accio_aturar" value="finalitzar" class="w-full bg-emerald-700 text-white font-bold rounded-lg p-3">✅ Finalitzar tasca</button>
+              <button type="submit" name="accio_aturar" value="continuar" class="w-full bg-blue-700 text-white font-bold rounded-lg p-3">🔧 Continuar tasca</button>
+            </form>
+            <form method="dialog"><button type="submit" class="w-full border border-slate-300 rounded-lg p-2 text-slate-600 font-semibold">Cancel·lar (no aturar)</button></form>
+          </div>
+        </dialog>
         {% else %}
         <form action="{{ url_for('operari.iniciar_crono') }}" method="POST">
           <input type="hidden" name="csv_index" value="{{ t.csv_index }}"><input type="hidden" name="operari_sel" value="{{ operari_sel }}">
@@ -197,6 +207,13 @@
   {% endif %}
 </div>
 {% endblock %}
+
+
+
+
+
+
+
 
 
 
