@@ -32,21 +32,40 @@ app.register_blueprint(tasques_bp)
 app.register_blueprint(gantt_bp)
 app.register_blueprint(articles_bp)
 
-# 🛡️ MIDDLEWARE DE PROTECCIÓ D'ADMINISTRACIÓ
-# Rutes públiques o pròpies del panell d'operari que no demanen login d'administrador
+# 🛡️ CONTROL D'ACCÉS
+# Accés al login i al panell de l'operari; la comprovació de credencials
+# per a la sessió d'operari es fa a routes/operari.py.
 RUTES_PUBLIQUES = [
-    "vista_login_admin", 
-    "login_admin", 
+    "vista_login_admin",
+    "login_admin",
     "logout_admin",
-    "operari.vista_operari", 
-    "operari.login_operari", 
+    "operari.vista_operari",
+    "operari.login_operari",
     "operari.logout_operari",
     "operari.sollicitar_recuperacio",
     "operari.validar_codi_recuperacio",
     "operari.recuperar_contrasenya",
-    "static", 
-    "serve_upload"
+    "static",
+    "serve_upload",
 ]
+
+# Accions que necessiten una sessió d'operari o d'administrador.
+# No incloure-hi operari.afegir_operari: és una acció administrativa.
+RUTES_OPERARI = {
+    "operari.iniciar_crono",
+    "operari.aturar_crono",
+    "operari.afegir_temps_manual",
+    "operari.registrar_sollicitud_material",
+    "operari.canviar_estat_material",
+    "operari.pujar_foto",
+    "operari.confirmar_finalitzacio",
+    "operari.eliminar_registre_hora",
+    "operari.guardar_notes_operari",
+    "operari.reobrir_tasca",
+    "operari.canviar_contrasenya",
+    "operari.registrar_material_no_subministrat",
+    "operari.eliminar_material_no_subministrat",
+}
 
 @app.before_request
 def requerir_login_admin():
@@ -54,13 +73,18 @@ def requerir_login_admin():
     if not endpoint:
         return
 
-    # Deixar passar si és una ruta pública
-    if any(endpoint == pub or endpoint.startswith(f"{pub}.") for pub in RUTES_PUBLIQUES):
+    if endpoint in RUTES_PUBLIQUES:
         return
 
-    # Si intenta accedir a qualsevol secció de gestió sense sessió d'administrador
-    if not session.get("admin_autenticat"):
-        return redirect(url_for("vista_login_admin"))
+    if session.get("admin_autenticat"):
+        return
+
+    if endpoint in RUTES_OPERARI:
+        if session.get("operari_autenticat"):
+            return
+        return redirect(url_for("operari.vista_operari"))
+
+    return redirect(url_for("vista_login_admin"))
 
 # 🔐 RUTES D'AUTENTICACIÓ D'ADMINISTRACIÓ
 @app.route("/login_admin", methods=["GET"])
@@ -256,5 +280,8 @@ def eliminar_admin():
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=5000, debug=True)
+
+
+
 
 
