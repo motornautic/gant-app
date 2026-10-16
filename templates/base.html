@@ -36,22 +36,24 @@
                 <span>📦 Articles</span>
             </a>
 
-            <!-- 🛡️ SECCIÓN D'ADMINISTRACIÓ: NOMÉS ES MOSTRA SI HI HA SESSIÓ D'ADMIN I NO DE L'OPERARI -->
-            {% if not session.get('operari_autenticat') %}
-                {% if session.get('admin_autenticat') %}
-                    <a href="/admins" class="px-2.5 py-1.5 text-xs font-bold rounded-lg text-amber-300 hover:bg-slate-700/60 transition flex items-center space-x-1">
-                        <span>🛡️ Admins</span>
-                    </a>
+            <!-- 🛡️ SECCIÓ D'ADMINISTRACIÓ -->
+            {% if session.get('admin_autenticat') %}
+                <a href="/admins" class="px-2.5 py-1.5 text-xs font-bold rounded-lg text-amber-300 hover:bg-slate-700/60 transition flex items-center space-x-1">
+                    <span>🛡️ Admins</span>
+                </a>
 
-                    <div class="flex items-center space-x-2 border-l border-slate-700 pl-2 ml-2">
-                        <span class="text-[11px] text-amber-300 font-bold hidden md:inline">
-                            🛡️ {{ session.get('admin_nom', session.get('admin_autenticat')) }}
-                        </span>
-                        <a href="/logout_admin" class="bg-red-600 hover:bg-red-700 text-white text-xs font-bold px-2.5 py-1.5 rounded-lg shadow transition flex items-center space-x-1 cursor-pointer" title="Tancar Sessió d'Administrador">
-                            <span>🚪 Sortir Admin</span>
-                        </a>
-                    </div>
-                {% endif %}
+                <div class="flex items-center space-x-2 border-l border-slate-700 pl-2 ml-2">
+                    <span class="text-[11px] text-amber-300 font-bold hidden md:inline">
+                        🛡️ {{ session.get('admin_nom', session.get('admin_autenticat')) }}
+                    </span>
+                    <a href="/logout_admin" class="bg-red-600 hover:bg-red-700 text-white text-xs font-bold px-2.5 py-1.5 rounded-lg shadow transition flex items-center space-x-1 cursor-pointer" title="Tancar Sessió d'Administrador">
+                        <span>🚪 Sortir Admin</span>
+                    </a>
+                </div>
+            {% else %}
+                <a href="/login_admin" class="bg-blue-800 hover:bg-blue-700 text-amber-300 text-xs font-bold px-2.5 py-1.5 rounded-lg shadow transition flex items-center space-x-1 ml-2">
+                    <span>🔑 Entrar Admin</span>
+                </a>
             {% endif %}
         </nav> 
     </header>
@@ -62,4 +64,3 @@
     </main>
 </body>
 </html>
-
