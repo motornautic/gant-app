@@ -13,7 +13,7 @@ from email.mime.multipart import MIMEMultipart
 operari_bp = Blueprint('operari', __name__)
 
 # ---------------------------------------------------------------------
-# FUNCIONS AUXILIARS DE PROCESSAMENT (IMPORTADES PER TASQUES.PY)
+# FUNCIONS AUXILIARS DE PROCESSAMENT
 # ---------------------------------------------------------------------
 
 def extreure_historial_hores(text_comentaris):
@@ -147,56 +147,9 @@ def carregar_df_operaris():
 
 @operari_bp.route("/operari", methods=["GET"])
 def vista_operari():
-    # ... (Codi existent) ...
-    now_date = datetime.now().strftime("%Y-%m-%d")
-    
-    response = make_response(render_template(
-        "operari.html", 
-        operaris=operaris, 
-        operari_sel=operari_sel, 
-        perfil=perfil_data, 
-        tasques=tasques_op, 
-        confirm_idx=confirm_idx, 
-        edit_reg_info=edit_reg_info, 
-        articles=llista_articles, 
-        es_admin=es_admin,
-        now_date=now_date # 👈 ENVIEM LA DATA D'AVUI PER DEFECTE
-    ))
-    
-    if operari_sel:
-        response.set_cookie("operari_saved", operari_sel, max_age=30*24*3600)
-        
-    return response
-
-@operari_bp.route("/login_operari", methods=["POST"])
-def login_operari():
-    operari_sel = request.form.get("operari", "").strip()
-    password_input = request.form.get("password", "").strip()
-    
-    df_operaris = carregar_df_operaris()
-    
-    if not df_operaris.empty and "Nom" in df_operaris.columns:
-        row = df_operaris[df_operaris["Nom"].str.upper() == str(operari_sel).upper()]
-        if not row.empty:
-            pwd_guardada = str(row.iloc[0].get("Password", "")).strip()
-            pwd_esperada = pwd_guardada if pwd_guardada else operari_sel
-            
-            if password_input.upper() == pwd_esperada.upper():
-                # 🔒 GRAVEM LA SESSIÓ AL SERVIDOR I COOKIE PERSISTENT
-                session["operari_autenticat"] = operari_sel
-                response = make_response(redirect(url_for("operari.vista_operari", operari=operari_sel)))
-                response.set_cookie("operari_saved", operari_sel, max_age=30*24*3600)
-                return response
-    
-    return redirect(url_for("operari.vista_operari", operari=operari_sel, error_auth=1))
-
-@operari_bp.route("/operari", methods=["GET"])
-def vista_operari():
-    # 1. Carreguem la llista d'operaris des de la base de dades
     operaris = carregar_operaris()
     es_admin = bool(session.get("admin_autenticat"))
     
-    # 🔒 RECUPERACIÓ DE SESSIÓ I COOKIE MULTI-CAPA
     operari_autenticat = session.get("operari_autenticat") or request.cookies.get("operari_saved")
     operari_req = request.args.get("operari")
     
@@ -306,48 +259,33 @@ def vista_operari():
         
     return response
 
-
-@operari_bp.route("/validar_codi_recuperacio", methods=["POST"])
-def validar_codi_recuperacio():
-    email_input = request.form.get("email", "").strip().lower()
-    codi_input = request.form.get("codi", "").strip()
-    pwd_nova = request.form.get("password_nova", "").strip()
+@operari_bp.route("/login_operari", methods=["POST"])
+def login_operari():
+    operari_sel = request.form.get("operari", "").strip()
+    password_input = request.form.get("password", "").strip()
     
-    fitxer_op = os.path.join(os.getcwd(), 'operaris.csv')
     df_operaris = carregar_df_operaris()
     
-    if not df_operaris.empty and "Email" in df_operaris.columns:
-        idx_list = df_operaris.index[df_operaris["Email"].str.lower() == email_input].tolist()
-        if idx_list:
-            idx = idx_list[0]
-            codi_guardat = str(df_operaris.at[idx, "Reset_Code"]).strip()
-            expiracio_str = str(df_operaris.at[idx, "Reset_Expiry"]).strip()
+    if not df_operaris.empty and "Nom" in df_operaris.columns:
+        row = df_operaris[df_operaris["Nom"].str.upper() == str(operari_sel).upper()]
+        if not row.empty:
+            pwd_guardada = str(row.iloc[0].get("Password", "")).strip()
+            pwd_esperada = pwd_guardada if pwd_guardada else operari_sel
             
-            if codi_guardat and codi_input == codi_guardat:
-                try:
-                    expiracio_dt = datetime.strptime(expiracio_str, "%Y-%m-%d %H:%M:%S")
-                    if datetime.now() <= expiracio_dt:
-                        df_operaris.at[idx, "Password"] = pwd_nova
-                        df_operaris.at[idx, "Reset_Code"] = ""
-                        df_operaris.at[idx, "Reset_Expiry"] = ""
-                        df_operaris.to_csv(fitxer_op, index=False)
-                        
-                        operari_nom = df_operaris.at[idx, "Nom"]
-                        session["operari_autenticat"] = operari_nom
-                        
-                        response = make_response(redirect(url_for("operari.vista_operari", operari=operari_nom)))
-                        response.set_cookie("operari_saved", operari_nom, max_age=30*24*3600)
-                        return response
-                    else:
-                        error_msg = "El codi ha caducat (durada màxima de 15 minuts). Sol·licita un de nou."
-                except Exception:
-                    error_msg = "Error validant la data de caducitat del codi."
-            else:
-                error_msg = "El codi de verificació introduït no és correcte."
-                
-            return render_template("reset_password.html", email=email_input, error=error_msg)
+            if password_input.upper() == pwd_esperada.upper():
+                session["operari_autenticat"] = operari_sel
+                response = make_response(redirect(url_for("operari.vista_operari", operari=operari_sel)))
+                response.set_cookie("operari_saved", operari_sel, max_age=30*24*3600)
+                return response
+    
+    return redirect(url_for("operari.vista_operari", operari=operari_sel, error_auth=1))
 
-    return redirect(url_for("operari.vista_operari"))
+@operari_bp.route("/logout_operari", methods=["POST"])
+def logout_operari():
+    session.pop("operari_autenticat", None)
+    response = make_response(redirect(url_for("operari.vista_operari")))
+    response.delete_cookie("operari_saved")
+    return response
 
 @operari_bp.route("/guardar_perfil_operari", methods=["POST"])
 def guardar_perfil_operari():
@@ -468,6 +406,48 @@ def aturar_crono():
             
     return redirect(url_for("operari.vista_operari", operari=operari_sel, confirm_idx=idx))
 
+@operari_bp.route("/afegir_temps_manual", methods=["POST"])
+def afegir_temps_manual():
+    idx = int(request.form.get("csv_index"))
+    hora_inici, hora_fi = request.form.get("hora_inici"), request.form.get("hora_fi")
+    operari_sel = request.form.get("operari_sel", "").strip() or session.get("operari_autenticat", "").strip()
+    
+    data_imp_raw = request.form.get("data_imputacio", "").strip()
+    if data_imp_raw:
+        try:
+            data_formatted = datetime.strptime(data_imp_raw, "%Y-%m-%d").strftime("%d/%m/%y")
+        except Exception:
+            data_formatted = datetime.now().strftime("%d/%m/%y")
+    else:
+        data_formatted = datetime.now().strftime("%d/%m/%y")
+
+    t_inici, t_fi = datetime.strptime(hora_inici, "%H:%M"), datetime.strptime(hora_fi, "%H:%M")
+    if t_fi < t_inici: t_fi += pd.Timedelta(days=1)
+    
+    diff_segons = int((t_fi - t_inici).total_seconds())
+    h_int = int(diff_segons // 3600)
+    m_int = int(round((diff_segons % 3600) / 60))
+    if m_int == 60:
+        h_int += 1
+        m_int = 0
+    
+    df = carregar_tasques()
+    
+    nova_nota = f"[{operari_sel} | Temps manual {data_formatted}: {hora_inici} a {hora_fi} ({h_int}h {m_int:02d}m)]"
+    
+    com_actual = df.at[idx, "Comentaris_Operari"]
+    nou_com = f"{com_actual} | {nova_nota}" if com_actual else nova_nota
+    df.at[idx, "Comentaris_Operari"] = nou_com
+    df.at[idx, "Hores_Imputades"] = calcular_total_formatted(nou_com)
+    
+    if request.form.get("marcar_finalitzada"): 
+        df.at[idx, "Estat"] = "Finalitzada"
+    else:
+        df.at[idx, "Estat"] = "En Curs"
+        
+    guardar_tasques(df)
+    return redirect(url_for("operari.vista_operari", operari=operari_sel))
+
 @operari_bp.route("/registrar_sollicitud_material", methods=["POST"])
 def registrar_sollicitud_material():
     idx = int(request.form.get("csv_index"))
@@ -564,40 +544,6 @@ def confirmar_finalitzacio():
         
     return redirect(url_for("operari.vista_operari", operari=operari_sel))
 
-@operari_bp.route("/afegir_temps_manual", methods=["POST"])
-def afegir_temps_manual():
-    idx = int(request.form.get("csv_index"))
-    hora_inici, hora_fi = request.form.get("hora_inici"), request.form.get("hora_fi")
-    operari_sel = request.form.get("operari_sel", "").strip() or session.get("operari_autenticat", "").strip()
-    
-    t_inici, t_fi = datetime.strptime(hora_inici, "%H:%M"), datetime.strptime(hora_fi, "%H:%M")
-    if t_fi < t_inici: t_fi += pd.Timedelta(days=1)
-    
-    diff_segons = int((t_fi - t_inici).total_seconds())
-    h_int = int(diff_segons // 3600)
-    m_int = int(round((diff_segons % 3600) / 60))
-    if m_int == 60:
-        h_int += 1
-        m_int = 0
-    
-    df = carregar_tasques()
-    data_avui = datetime.now().strftime("%d/%m/%y")
-    
-    nova_nota = f"[{operari_sel} | Temps manual {data_avui}: {hora_inici} a {hora_fi} ({h_int}h {m_int:02d}m)]"
-    
-    com_actual = df.at[idx, "Comentaris_Operari"]
-    nou_com = f"{com_actual} | {nova_nota}" if com_actual else nova_nota
-    df.at[idx, "Comentaris_Operari"] = nou_com
-    df.at[idx, "Hores_Imputades"] = calcular_total_formatted(nou_com)
-    
-    if request.form.get("marcar_finalitzada"): 
-        df.at[idx, "Estat"] = "Finalitzada"
-    else:
-        df.at[idx, "Estat"] = "En Curs"
-        
-    guardar_tasques(df)
-    return redirect(url_for("operari.vista_operari", operari=operari_sel))
-
 @operari_bp.route("/eliminar_registre_hora", methods=["POST"])
 def eliminar_registre_hora():
     idx, reg_idx = int(request.form.get("csv_index")), int(request.form.get("reg_index"))
@@ -625,31 +571,6 @@ def eliminar_registre_hora():
                 
             guardar_tasques(df)
             
-    return redirect(url_for("operari.vista_operari", operari=operari_sel))
-
-@operari_bp.route("/guardar_edicio_hora", methods=["POST"])
-def guardar_edicio_hora():
-    idx, reg_idx = int(request.form.get("csv_index")), int(request.form.get("reg_index"))
-    hora_inici, hora_fi = request.form.get("hora_inici"), request.form.get("hora_fi")
-    operari_sel = request.form.get("operari_sel", "").strip() or session.get("operari_autenticat", "").strip()
-    df = carregar_tasques()
-    com_actual = df.at[idx, "Comentaris_Operari"]
-    registres = extreure_historial_hores(com_actual)
-    if 0 <= reg_idx < len(registres):
-        reg_antic = registres[reg_idx]
-        t_inici, t_fi = datetime.strptime(hora_inici, "%H:%M"), datetime.strptime(hora_fi, "%H:%M")
-        if t_fi < t_inici: t_fi += pd.Timedelta(days=1)
-        diff_segons = int((t_fi - t_inici).total_seconds())
-        h_int = int(diff_segons // 3600)
-        m_int = int(round((diff_segons % 3600) / 60))
-        if m_int == 60:
-            h_int += 1
-            m_int = 0
-            
-        nou_text_reg = f"[{reg_antic['operari']} | Temps manual {reg_antic['data']}: {hora_inici} a {hora_fi} ({h_int}h {m_int:02d}m)]"
-        df.at[idx, "Comentaris_Operari"] = com_actual.replace(reg_antic["raw_text"], nou_text_reg)
-        df.at[idx, "Hores_Imputades"] = calcular_total_formatted(df.at[idx, "Comentaris_Operari"])
-        guardar_tasques(df)
     return redirect(url_for("operari.vista_operari", operari=operari_sel))
 
 @operari_bp.route("/guardar_notes_operari", methods=["POST"])
@@ -834,7 +755,5 @@ def eliminar_material_no_subministrat():
         return redirect(url_for("operari.vista_operari", operari=operari_sel))
     else:
         return redirect(request.referrer or url_for("operari.vista_operari"))
-
-
 
 
