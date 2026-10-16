@@ -321,6 +321,8 @@ def aturar_crono():
     if operari_sel:
         session["operari_autenticat"] = operari_sel
 
+    accio_aturar = request.form.get("accio_aturar", "continuar").strip()
+
     df = carregar_tasques()
     if 0 <= idx < len(df) and operari_sel:
         crono_dict = {}
@@ -360,7 +362,10 @@ def aturar_crono():
                 
             crono_dict.pop(operari_sel, None)
             df.at[idx, "Inici_Crono"] = json.dumps(crono_dict) if crono_dict else ""
-            df.at[idx, "Estat"] = "En Curs"
+            # Continuar: mantenir l'estat actual de la tasca.
+            # Finalitzar: marcar-la com a finalitzada.
+            if accio_aturar == "finalitzar":
+                df.at[idx, "Estat"] = "Finalitzada"
             guardar_tasques(df)
             
     return redirect(url_for("operari.vista_operari", operari=operari_sel, confirm_idx=idx))
@@ -714,6 +719,13 @@ def eliminar_material_no_subministrat():
         return redirect(url_for("operari.vista_operari", operari=operari_sel))
     else:
         return redirect(request.referrer or url_for("operari.vista_operari"))
+
+
+
+
+
+
+
 
 
 
