@@ -92,6 +92,12 @@ def requerir_login_admin():
             and session.get("operari_autenticat")):
         return
 
+    # Els operaris poden afegir documents a la fitxa, però no editar embarcacions.
+    if (endpoint == "embarcacions.afegir_document_fitxa"
+            and request.method == "POST"
+            and session.get("operari_autenticat")):
+        return
+
     # Lectura de la llista d'embarcacions per a operaris.
     # Només s'autoritza el GET exacte de /embarcacions; qualsevol
     # altra URL o mètode segueix requerint administració.
@@ -301,6 +307,15 @@ def eliminar_admin():
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=5000, debug=True)
+
+
+
+
+
+
+
+
+
 
 
 
