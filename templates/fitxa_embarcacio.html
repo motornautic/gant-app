@@ -326,7 +326,7 @@
     </details>
 
 <script>
-const diccionariMotors = {{ dic_motors|tojson }};
+const diccionariMotors = {{ dic_motors|default({})|tojson }};
 const initialSeries = {% if emb_edit and emb_edit.list_num_serie %}{{ emb_edit.list_num_serie|tojson }}{% else %}[]{% endif %};
 const initialHores = {% if emb_edit and emb_edit.list_hores %}{{ emb_edit.list_hores|tojson }}{% else %}[]{% endif %};
 
