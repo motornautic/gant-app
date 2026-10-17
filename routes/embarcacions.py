@@ -16,8 +16,8 @@ embarcacions_bp = Blueprint('embarcacions', __name__)
 def protegir_modificacions_embarcacions():
     if request.method == "GET" or session.get("admin_autenticat"):
         return
-    # Única excepció d'escriptura: afegir PDF o URL des de la fitxa.
-    if (request.endpoint == "embarcacions.afegir_document_fitxa"
+    # Les úniques excepcions: afegir documents o fotografies des de la fitxa.
+    if (request.endpoint in ("embarcacions.afegir_document_fitxa", "embarcacions.pujar_foto_fitxa")
             and session.get("operari_autenticat")):
         return
     abort(403)
@@ -235,6 +235,49 @@ def afegir_document_fitxa():
     df.at[idx, "Enllacs"] = f"{actual} | {entrada}" if actual else entrada
     guardar_embarcacions(df)
     return redirect(url_for("embarcacions.fitxa_embarcacio", nom=nom_real, doc_ok=1) + "#documents-embarcacio")
+
+
+# Pujar una fotografia des de la fitxa individual (operari o administrador).
+@embarcacions_bp.route("/embarcacions/fitxa/foto", methods=["POST"])
+def pujar_foto_fitxa():
+    if not (session.get("admin_autenticat") or session.get("operari_autenticat")):
+        abort(403)
+
+    nom = (request.form.get("nom") or "").strip()
+    df = carregar_embarcacions()
+    if not nom or df.empty or "Nom" not in df.columns:
+        abort(404)
+    coincidencies = df[df["Nom"].astype(str).str.strip().str.casefold() == nom.casefold()]
+    if coincidencies.empty:
+        abort(404)
+    nom_real = str(coincidencies.iloc[0]["Nom"]).strip()
+    fitxer = request.files.get("foto")
+    if not fitxer or not fitxer.filename:
+        abort(400, "Selecciona una fotografia.")
+
+    mida_max = 12 * 1024 * 1024
+    dades = fitxer.read(mida_max + 1)
+    if not dades or len(dades) > mida_max:
+        abort(413, "La fotografia ha de tenir menys de 12 MB.")
+    extensio = os.path.splitext(secure_filename(fitxer.filename))[1].lower()
+    signatures = {
+        ".jpg": dades.startswith(bytes.fromhex("FFD8FF")),
+        ".jpeg": dades.startswith(bytes.fromhex("FFD8FF")),
+        ".png": dades.startswith(bytes.fromhex("89504E470D0A1A0A")),
+        ".webp": dades.startswith(b"RIFF") and dades[8:12] == b"WEBP",
+    }
+    if not signatures.get(extensio, False):
+        abort(400, "Només s'admeten JPG, PNG o WEBP.")
+
+    carpeta = secure_filename(nom_real)
+    if not carpeta:
+        abort(400)
+    desti = os.path.join(current_app.config["UPLOAD_FOLDER"], carpeta)
+    os.makedirs(desti, exist_ok=True)
+    nom_fitxer = f"{datetime.now():%Y%m%d_%H%M%S}_{uuid4().hex[:10]}{extensio}"
+    with open(os.path.join(desti, nom_fitxer), "wb") as f:
+        f.write(dades)
+    return redirect(url_for("embarcacions.fitxa_embarcacio", nom=nom_real, foto_ok=1) + "#fotografies-embarcacio")
 
 
 # 📊 EXPORTAR EMBARCACIONS A EXCEL
@@ -556,6 +599,14 @@ def eliminar_embarcacio():
         df = df.drop(idx).reset_index(drop=True)
         guardar_embarcacions(df)
     return redirect(url_for("embarcacions.vista_embarcacions"))
+
+
+
+
+
+
+
+
 
 
 
