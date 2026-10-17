@@ -1,6 +1,8 @@
 from flask import Blueprint, render_template, request, redirect, url_for, current_app, send_file, abort, session
 import pandas as pd
 import os, re, json, io
+from uuid import uuid4
+from urllib.parse import urlsplit
 from datetime import datetime
 from werkzeug.utils import secure_filename
 from routes.clients import carregar_clients
@@ -12,8 +14,13 @@ embarcacions_bp = Blueprint('embarcacions', __name__)
 # Protecció complementària: totes les operacions de modificació són exclusives de l'administració.
 @embarcacions_bp.before_request
 def protegir_modificacions_embarcacions():
-    if request.method != "GET" and not session.get("admin_autenticat"):
-        abort(403)
+    if request.method == "GET" or session.get("admin_autenticat"):
+        return
+    # Única excepció d'escriptura: afegir PDF o URL des de la fitxa.
+    if (request.endpoint == "embarcacions.afegir_document_fitxa"
+            and session.get("operari_autenticat")):
+        return
+    abort(403)
 
 JSON_MOTORS_CUSTOM = "motors_custom.json"
 
@@ -166,6 +173,68 @@ def fitxa_embarcacio():
         if os.path.isdir(dir_fotos) else []
     )
     return render_template("fitxa_embarcacio.html", e=embarcacio)
+
+
+# Afegir documents/enllaços a la fitxa (operari o administrador autenticat).
+@embarcacions_bp.route("/embarcacions/fitxa/afegir-document", methods=["POST"])
+def afegir_document_fitxa():
+    if not (session.get("operari_autenticat") or session.get("admin_autenticat")):
+        abort(403)
+
+    nom = (request.form.get("nom_embarcacio") or "").strip()
+    tipus = request.form.get("tipus_doc", "").strip()
+    titol = (request.form.get("titol") or "").strip()
+    if not nom or tipus not in ("pdf", "url"):
+        abort(400)
+
+    df = carregar_embarcacions()
+    if df.empty or "Nom" not in df.columns:
+        abort(404)
+    trobat = df.index[df["Nom"].astype(str).str.strip().str.casefold() == nom.casefold()]
+    if len(trobat) == 0:
+        abort(404)
+    idx = trobat[0]
+    nom_real = str(df.at[idx, "Nom"])
+    url_final = ""
+
+    if tipus == "pdf":
+        fitxer = request.files.get("pdf_file")
+        if not fitxer or not fitxer.filename or not fitxer.filename.lower().endswith(".pdf"):
+            abort(400, "Selecciona un arxiu PDF.")
+        # Màxim 15 MiB i verificació bàsica de la capçalera PDF.
+        dades = fitxer.stream.read(15 * 1024 * 1024 + 1)
+        if len(dades) > 15 * 1024 * 1024 or not dades.startswith(b"%PDF-"):
+            abort(400, "El PDF no és vàlid o supera els 15 MB.")
+        nom_fitxer = secure_filename(fitxer.filename)
+        if not nom_fitxer:
+            abort(400)
+        carpeta = secure_filename(nom_real)
+        desti = os.path.join(current_app.config["UPLOAD_FOLDER"], carpeta)
+        os.makedirs(desti, exist_ok=True)
+        guardat = f"DOC_{uuid4().hex}_{nom_fitxer}"
+        with open(os.path.join(desti, guardat), "wb") as f:
+            f.write(dades)
+        url_final = f"/uploads/{carpeta}/{guardat}"
+        if not titol:
+            titol = fitxer.filename.rsplit(".", 1)[0]
+    else:
+        url_final = (request.form.get("url") or "").strip()
+        u = urlsplit(url_final)
+        if u.scheme not in ("http", "https") or not u.netloc:
+            abort(400, "L'enllaç ha de començar per https:// o http://")
+
+    # El format de la columna Enllacs és [títol|URL].
+    titol = re.sub(r"[\[\]\|]", "", titol).strip()[:180]
+    if not titol or any(c in url_final for c in "[]|"):
+        abort(400, "Títol o enllaç no vàlid.")
+
+    entrada = f"[{titol}|{url_final}]"
+    actual = str(df.at[idx, "Enllacs"]).strip() if "Enllacs" in df.columns else ""
+    if actual.lower() in ("nan", "none"):
+        actual = ""
+    df.at[idx, "Enllacs"] = f"{actual} | {entrada}" if actual else entrada
+    guardar_embarcacions(df)
+    return redirect(url_for("embarcacions.fitxa_embarcacio", nom=nom_real, doc_ok=1) + "#documents-embarcacio")
 
 
 # 📊 EXPORTAR EMBARCACIONS A EXCEL
@@ -487,6 +556,11 @@ def eliminar_embarcacio():
         df = df.drop(idx).reset_index(drop=True)
         guardar_embarcacions(df)
     return redirect(url_for("embarcacions.vista_embarcacions"))
+
+
+
+
+
 
 
 
