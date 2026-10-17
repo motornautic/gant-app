@@ -3,7 +3,7 @@
 <div class="max-w-4xl mx-auto space-y-4">
   <div class="flex flex-wrap items-center justify-between gap-3">
     <a href="{{ url_for('operari.vista_operari') if session.get('operari_autenticat') and not session.get('admin_autenticat') else url_for('embarcacions.vista_embarcacions') }}" class="rounded-lg bg-slate-200 px-4 py-2 text-sm font-bold text-slate-800">← Tornar</a>
-    <span class="rounded-lg bg-blue-100 px-3 py-1 text-sm font-bold text-blue-900">👁️ Fitxa de consulta · Pots afegir documents</span>
+    <span class="rounded-lg bg-blue-100 px-3 py-1 text-sm font-bold text-blue-900">👁️ Fitxa de consulta · Pots afegir fotos i documents</span>
   </div>
   <div class="rounded-2xl bg-blue-900 text-white p-5 text-center shadow">
     <h2 class="text-2xl sm:text-3xl font-extrabold">⛵ {{ e.Nom }}</h2>
@@ -14,7 +14,7 @@
     {% if e.fotos %}
     <a href="#fotografies-embarcacio" class="rounded-xl bg-blue-100 border border-blue-200 px-4 py-3 text-center text-blue-900 font-bold hover:bg-blue-200">📷 Veure fotografies ({{ e.fotos|length }})</a>
     {% else %}
-    <div class="rounded-xl bg-slate-100 border px-4 py-3 text-center text-slate-500 font-semibold">📷 Sense fotografies</div>
+    <a href="#fotografies-embarcacio" class="rounded-xl bg-blue-50 border border-blue-200 px-4 py-3 text-center text-blue-900 font-semibold">📷 Afegir la primera fotografia</a>
     {% endif %}
     {% if e.enllacs_llista %}
     <a href="#documents-embarcacio" class="rounded-xl bg-emerald-100 border border-emerald-200 px-4 py-3 text-center text-emerald-900 font-bold hover:bg-emerald-200">📄 Veure documents i enllaços ({{ e.enllacs_llista|length }})</a>
@@ -88,18 +88,49 @@
       </div>
     </details>
   </section>
-  {% if e.fotos %}
-  <section id="fotografies-embarcacio" class="rounded-xl bg-white p-4 border shadow-sm scroll-mt-5">
-    <h3 class="font-bold text-blue-900 mb-3">📷 Fotografies</h3>
-    <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
-      {% for foto in e.fotos %}
-      <a href="{{ foto }}" target="_blank" rel="noopener noreferrer"><img src="{{ foto }}" loading="lazy" alt="Fotografia de {{ e.Nom }}" class="w-full h-36 object-cover rounded-lg border"></a>
-      {% endfor %}
-    </div>
+  <section id="fotografies-embarcacio" class="rounded-xl bg-white p-4 border shadow-sm space-y-3 scroll-mt-5">
+    <h3 class="font-bold text-blue-900">📷 Fotografies de l'embarcació</h3>
+    {% if request.args.get('foto_ok') %}
+      <p class="rounded-lg bg-green-100 p-2 text-sm font-semibold text-green-900">✅ Fotografia guardada correctament.</p>
+    {% endif %}
+    {% if e.fotos %}
+      <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+        {% for foto in e.fotos %}
+          <a href="{{ foto }}" target="_blank" rel="noopener noreferrer"><img src="{{ foto }}" loading="lazy" alt="Fotografia de {{ e.Nom }}" class="w-full h-36 object-cover rounded-lg border"></a>
+        {% endfor %}
+      </div>
+    {% else %}
+      <p class="text-sm text-slate-500">Encara no hi ha fotografies.</p>
+    {% endif %}
+    <details class="border-t pt-3">
+      <summary class="cursor-pointer font-bold text-blue-800">➕ Afegir fotografies</summary>
+      <div class="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+        <form action="{{ url_for('embarcacions.pujar_foto_fitxa') }}" method="POST" enctype="multipart/form-data" class="rounded-lg bg-slate-50 border p-3 space-y-2">
+          <input type="hidden" name="nom" value="{{ e.Nom }}">
+          <label class="block font-semibold">📸 Fer una fotografia</label>
+          <input type="file" name="foto" accept="image/*" capture="environment" required class="block w-full text-xs">
+          <button type="submit" class="w-full bg-blue-700 text-white rounded-lg p-2 font-bold">Guardar fotografia</button>
+        </form>
+        <form action="{{ url_for('embarcacions.pujar_foto_fitxa') }}" method="POST" enctype="multipart/form-data" class="rounded-lg bg-slate-50 border p-3 space-y-2">
+          <input type="hidden" name="nom" value="{{ e.Nom }}">
+          <label class="block font-semibold">📁 Triar foto de galeria o arxius</label>
+          <input type="file" name="foto" accept="image/*" required class="block w-full text-xs">
+          <button type="submit" class="w-full bg-slate-700 text-white rounded-lg p-2 font-bold">Pujar fotografia existent</button>
+        </form>
+      </div>
+      <p class="text-xs text-slate-500 mt-2">JPG, PNG o WEBP, màxim 12 MB. Les fotos es guarden a la galeria de l'embarcació.</p>
+    </details>
   </section>
-  {% endif %}
 </div>
 {% endblock %}
+
+
+
+
+
+
+
+
 
 
 
