@@ -9,6 +9,12 @@ from db import carregar_embarcacions, guardar_embarcacions
 
 embarcacions_bp = Blueprint('embarcacions', __name__)
 
+# Protecció complementària: totes les operacions de modificació són exclusives de l'administració.
+@embarcacions_bp.before_request
+def protegir_modificacions_embarcacions():
+    if request.method != "GET" and not session.get("admin_autenticat"):
+        abort(403)
+
 JSON_MOTORS_CUSTOM = "motors_custom.json"
 
 DIC_MOTORS_BASE = {
@@ -87,7 +93,7 @@ def vista_embarcacions():
             if nom_comp: llista_clients_noms.append(nom_comp)
 
     llista_emb = []
-    edit_idx = request.args.get("edit_idx", type=int)
+    edit_idx = request.args.get("edit_idx", type=int) if session.get("admin_autenticat") else None
     emb_edit = None
     
     if not df_emb.empty:
@@ -481,6 +487,9 @@ def eliminar_embarcacio():
         df = df.drop(idx).reset_index(drop=True)
         guardar_embarcacions(df)
     return redirect(url_for("embarcacions.vista_embarcacions"))
+
+
+
 
 
 
