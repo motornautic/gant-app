@@ -52,13 +52,21 @@ def estampar_data_fotografia(dades_fitxer, extensio, text_data):
         draw = ImageDraw.Draw(img)
 
         ample, alt = img.size
-        font_size = max(20, int(min(ample, alt) * 0.035))
+        font_size = max(30, int(min(ample, alt) * 0.065))
         try:
             font = ImageFont.truetype('DejaVuSans-Bold.ttf', font_size)
         except Exception:
             font = ImageFont.load_default()
 
+        # Evitem que la data surti tallada en fotos verticals o estretes.
         bbox = draw.textbbox((0, 0), text_data, font=font)
+        while bbox[2] - bbox[0] > ample * 0.83 and font_size > 16:
+            font_size -= 2
+            try:
+                font = ImageFont.truetype('DejaVuSans-Bold.ttf', font_size)
+            except Exception:
+                break
+            bbox = draw.textbbox((0, 0), text_data, font=font)
         text_w = bbox[2] - bbox[0]
         text_h = bbox[3] - bbox[1]
 
@@ -665,15 +673,6 @@ def eliminar_embarcacio():
         df = df.drop(idx).reset_index(drop=True)
         guardar_embarcacions(df)
     return redirect(url_for("embarcacions.vista_embarcacions"))
-
-
-
-
-
-
-
-
-
 
 
 
