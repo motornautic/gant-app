@@ -568,3 +568,10 @@ def eliminar_embarcacio():
 
 
 
+
+
+
+
+
+
+
