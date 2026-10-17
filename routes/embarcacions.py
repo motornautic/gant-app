@@ -626,3 +626,11 @@ def eliminar_embarcacio():
 
 
 
+
+
+
+
+
+
+
+
