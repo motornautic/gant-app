@@ -21,8 +21,15 @@ app.config['MAIL_USE_TLS'] = False
 app.config['MAIL_USERNAME'] = 'admin@motornautic.com'
 app.config['MAIL_PASSWORD'] = 'M0t0r@2026admin'  # ⚠️ Posa la teva contrasenya real de correu
 
-UPLOAD_FOLDER = os.path.join(os.getcwd(), 'uploads')
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+# Carpeta persistent de fotografies
+UPLOAD_FOLDER = os.environ.get(
+    "UPLOAD_FOLDER",
+    os.path.join(os.getcwd(), "uploads")
+)
+
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 
 # Enregistrar els mòduls de rutes
 app.register_blueprint(operari_bp)
