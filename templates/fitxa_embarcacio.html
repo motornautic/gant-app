@@ -3,7 +3,7 @@
 <div class="max-w-4xl mx-auto space-y-4">
   <div class="flex flex-wrap items-center justify-between gap-3">
     <a href="{{ url_for('operari.vista_operari') if session.get('operari_autenticat') and not session.get('admin_autenticat') else url_for('embarcacions.vista_embarcacions') }}" class="rounded-lg bg-slate-200 px-4 py-2 text-sm font-bold text-slate-800">← Tornar</a>
-    <span class="rounded-lg bg-blue-100 px-3 py-1 text-sm font-bold text-blue-900">👁️ Fitxa de consulta · Només lectura</span>
+    <span class="rounded-lg bg-blue-100 px-3 py-1 text-sm font-bold text-blue-900">👁️ Fitxa de consulta · Pots afegir documents</span>
   </div>
   <div class="rounded-2xl bg-blue-900 text-white p-5 text-center shadow">
     <h2 class="text-2xl sm:text-3xl font-extrabold">⛵ {{ e.Nom }}</h2>
@@ -19,7 +19,7 @@
     {% if e.enllacs_llista %}
     <a href="#documents-embarcacio" class="rounded-xl bg-emerald-100 border border-emerald-200 px-4 py-3 text-center text-emerald-900 font-bold hover:bg-emerald-200">📄 Veure documents i enllaços ({{ e.enllacs_llista|length }})</a>
     {% else %}
-    <div class="rounded-xl bg-slate-100 border px-4 py-3 text-center text-slate-500 font-semibold">📄 Sense documents ni enllaços</div>
+    <a href="#documents-embarcacio" class="rounded-xl bg-emerald-50 border border-emerald-200 px-4 py-3 text-center text-emerald-900 font-semibold">📄 Afegir el primer document o enllaç</a>
     {% endif %}
   </div>
   <div class="grid sm:grid-cols-2 gap-4">
@@ -55,14 +55,39 @@
     {% endfor %}
   </section>
   {% endif %}
-  {% if e.enllacs_llista %}
-  <section id="documents-embarcacio" class="rounded-xl bg-white p-4 border shadow-sm space-y-2 scroll-mt-5">
+  <section id="documents-embarcacio" class="rounded-xl bg-white p-4 border shadow-sm space-y-3 scroll-mt-5">
     <h3 class="font-bold text-blue-900">📄 Documents i enllaços</h3>
+    {% if request.args.get('doc_ok') %}
+      <p class="rounded-lg bg-green-100 p-2 text-sm font-semibold text-green-900">✅ Document o enllaç afegit correctament.</p>
+    {% endif %}
     {% for doc in e.enllacs_llista %}
       <a href="{{ doc.url }}" class="block text-sm text-blue-700 underline break-all" target="_blank" rel="noopener noreferrer">📄 {{ doc.titol }}</a>
+    {% else %}
+      <p class="text-sm text-slate-500">Encara no hi ha documents ni enllaços.</p>
     {% endfor %}
+
+    <details class="border-t pt-3">
+      <summary class="cursor-pointer font-bold text-blue-800">➕ Afegir un PDF o un enllaç</summary>
+      <div class="mt-3 grid gap-3 sm:grid-cols-2 text-sm">
+        <form action="{{ url_for('embarcacions.afegir_document_fitxa') }}" method="POST" enctype="multipart/form-data" class="rounded-lg bg-slate-50 border p-3 space-y-2">
+          <h4 class="font-bold">📄 Pujar un PDF</h4>
+          <input type="hidden" name="nom_embarcacio" value="{{ e.Nom }}">
+          <input type="hidden" name="tipus_doc" value="pdf">
+          <label class="block">Títol (opcional)<input name="titol" type="text" maxlength="180" placeholder="Manual del motor" class="mt-1 w-full rounded border p-2"></label>
+          <label class="block">Arxiu PDF (màx. 15 MB)<input name="pdf_file" type="file" accept=".pdf,application/pdf" required class="mt-1 block w-full text-xs"></label>
+          <button type="submit" class="w-full rounded-lg bg-blue-700 p-2 font-bold text-white">Pujar PDF</button>
+        </form>
+        <form action="{{ url_for('embarcacions.afegir_document_fitxa') }}" method="POST" class="rounded-lg bg-slate-50 border p-3 space-y-2">
+          <h4 class="font-bold">🔗 Afegir un enllaç web</h4>
+          <input type="hidden" name="nom_embarcacio" value="{{ e.Nom }}">
+          <input type="hidden" name="tipus_doc" value="url">
+          <label class="block">Títol<input name="titol" type="text" maxlength="180" placeholder="Esquema elèctric" required class="mt-1 w-full rounded border p-2"></label>
+          <label class="block">Adreça web<input name="url" type="url" placeholder="https://..." required class="mt-1 w-full rounded border p-2"></label>
+          <button type="submit" class="w-full rounded-lg bg-emerald-700 p-2 font-bold text-white">Afegir enllaç</button>
+        </form>
+      </div>
+    </details>
   </section>
-  {% endif %}
   {% if e.fotos %}
   <section id="fotografies-embarcacio" class="rounded-xl bg-white p-4 border shadow-sm scroll-mt-5">
     <h3 class="font-bold text-blue-900 mb-3">📷 Fotografies</h3>
@@ -75,6 +100,10 @@
   {% endif %}
 </div>
 {% endblock %}
+
+
+
+
 
 
 
