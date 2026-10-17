@@ -1,9 +1,11 @@
 from flask import Blueprint, render_template, request, redirect, url_for, current_app, send_file, abort, session
 import pandas as pd
 import os, re, json, io
+from io import BytesIO
 from uuid import uuid4
 from urllib.parse import urlsplit
 from datetime import datetime
+from PIL import Image, ImageDraw, ImageFont, ImageOps
 from werkzeug.utils import secure_filename
 from routes.clients import carregar_clients
 # 🚀 IMPORTEM DE DB.PY PER GARANTIR LA CONEXIÓ AMB POSTGRESQL
@@ -33,6 +35,61 @@ DIC_MOTORS_BASE = {
     "Volvo Penta": ["D1-13", "D1-20", "D1-30", "D11-670", "D13-900", "D2-40", "D2-50", "D2-60", "D2-75", "D3-110", "D3-150", "D3-220", "D4-180", "D4-225", "D4-260", "D4-300", "D6-310", "D6-370", "D6-435", "KAD300", "KAD32", "KAD42", "KAD43", "KAD44", "TAMD41"],
     "Yanmar": ["1GM10", "2YM15", "3JH40", "3YM20", "3YM30AE", "4JH110", "4JH45", "4JH57", "4JH80", "4LHA-STP", "6CX530", "6LPA-STP", "6LY400"]
 }
+
+
+
+def estampar_data_fotografia(dades_fitxer, extensio, text_data):
+    """Afegeix la data/hora a la cantonada inferior dreta de la fotografia."""
+    with Image.open(BytesIO(dades_fitxer)) as img:
+        img = ImageOps.exif_transpose(img)
+        format_original = (img.format or '').upper()
+
+        if img.mode not in ('RGB', 'RGBA'):
+            img = img.convert('RGBA')
+        elif img.mode == 'RGB':
+            img = img.convert('RGBA')
+
+        draw = ImageDraw.Draw(img)
+
+        ample, alt = img.size
+        font_size = max(20, int(min(ample, alt) * 0.035))
+        try:
+            font = ImageFont.truetype('DejaVuSans-Bold.ttf', font_size)
+        except Exception:
+            font = ImageFont.load_default()
+
+        bbox = draw.textbbox((0, 0), text_data, font=font)
+        text_w = bbox[2] - bbox[0]
+        text_h = bbox[3] - bbox[1]
+
+        padding_x = max(12, int(font_size * 0.55))
+        padding_y = max(8, int(font_size * 0.35))
+        marge = max(12, int(font_size * 0.6))
+
+        x1 = ample - text_w - (padding_x * 2) - marge
+        y1 = alt - text_h - (padding_y * 2) - marge
+        x2 = ample - marge
+        y2 = alt - marge
+
+        overlay = Image.new('RGBA', img.size, (0, 0, 0, 0))
+        overlay_draw = ImageDraw.Draw(overlay)
+        overlay_draw.rounded_rectangle([x1, y1, x2, y2], radius=max(8, int(font_size * 0.35)), fill=(0, 0, 0, 150))
+        img = Image.alpha_composite(img, overlay)
+
+        draw = ImageDraw.Draw(img)
+        draw.text((x1 + padding_x, y1 + padding_y), text_data, fill=(255, 255, 255, 255), font=font)
+
+        out = BytesIO()
+        ext = (extensio or '').lower()
+        if ext in ('.jpg', '.jpeg') or format_original in ('JPEG', 'JPG'):
+            img = img.convert('RGB')
+            img.save(out, format='JPEG', quality=92, optimize=True)
+        elif ext == '.png' or format_original == 'PNG':
+            img.save(out, format='PNG', optimize=True)
+        else:
+            img.save(out, format='WEBP', quality=92, method=6)
+
+        return out.getvalue()
 
 def carregar_diccionari_motors():
     dic = {k: sorted(v) for k, v in DIC_MOTORS_BASE.items()}
@@ -274,9 +331,18 @@ def pujar_foto_fitxa():
         abort(400)
     desti = os.path.join(current_app.config["UPLOAD_FOLDER"], carpeta)
     os.makedirs(desti, exist_ok=True)
-    nom_fitxer = f"{datetime.now():%Y%m%d_%H%M%S}_{uuid4().hex[:10]}{extensio}"
+
+    moment_foto = datetime.now()
+    text_data = moment_foto.strftime("%d/%m/%Y %H:%M")
+    try:
+        dades_finals = estampar_data_fotografia(dades, extensio, text_data)
+    except Exception as e:
+        print(f"⚠️ No s'ha pogut estampar la data a la fotografia: {e}")
+        abort(400, "No s'ha pogut processar la fotografia.")
+
+    nom_fitxer = f"{moment_foto:%Y%m%d_%H%M%S}_{uuid4().hex[:10]}{extensio}"
     with open(os.path.join(desti, nom_fitxer), "wb") as f:
-        f.write(dades)
+        f.write(dades_finals)
     return redirect(url_for("embarcacions.fitxa_embarcacio", nom=nom_real, foto_ok=1) + "#fotografies-embarcacio")
 
 
@@ -599,6 +665,14 @@ def eliminar_embarcacio():
         df = df.drop(idx).reset_index(drop=True)
         guardar_embarcacions(df)
     return redirect(url_for("embarcacions.vista_embarcacions"))
+
+
+
+
+
+
+
+
 
 
 
