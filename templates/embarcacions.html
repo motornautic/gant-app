@@ -2,9 +2,11 @@
 
 {% block content %}
 
+    {% set es_admin_emb = session.get("admin_autenticat") %}
     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-3">
-        <h2 class="text-xl font-bold text-slate-800">⛵ Gestió d'Embarcacions</h2>
+        <h2 class="text-xl font-bold text-slate-800">⛵ {{ "Gestió d’Embarcacions" if es_admin_emb else "Consulta d’Embarcacions" }}</h2>
 
+        {% if es_admin_emb %}
         <!-- 📊 BOTONS D'IMPORTAR I EXPORTAR A EXCEL -->
         <div class="flex items-center space-x-2">
             <a href="/exportar_embarcacions_excel" class="bg-emerald-700 hover:bg-emerald-800 text-white font-bold px-3 py-1.5 rounded-lg text-xs shadow flex items-center space-x-1 transition">
@@ -17,6 +19,8 @@
         </div>
     </div>
 
+    {% endif %}
+    {% if es_admin_emb %}
     <!-- FORMULARI DESPLEGABLE D'IMPORTAR EXCEL -->
     <div id="formImportarExcel" class="hidden bg-emerald-50 p-4 rounded-xl border border-emerald-200 shadow-md mb-6 max-w-lg">
         <h3 class="text-xs font-bold text-emerald-900 mb-2">📥 Importar Embarcacions des de Fitxer Excel (.xlsx)</h3>
@@ -174,6 +178,13 @@
         </form>
     </details>
 
+    {% endif %}
+    {% if not es_admin_emb %}
+    <div class="mb-4 flex items-center justify-between gap-2">
+        <span class="text-sm font-bold text-blue-900 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">👁️ Mode només lectura</span>
+        <a href="{{ url_for('operari.vista_operari') }}" class="text-sm bg-slate-200 hover:bg-slate-300 rounded-lg px-3 py-2 font-bold">← Tornar a les tasques</a>
+    </div>
+    {% endif %}
     <!-- CARD / TAULA AMPLA D'EMBARCACIONS DESPLEGABLE -->
     <details class="bg-white rounded-xl shadow border overflow-hidden w-full" open>
         <summary class="p-4 border-b bg-slate-50 font-bold text-sm text-slate-800 cursor-pointer flex justify-between items-center">
@@ -211,7 +222,7 @@
                             <th class="p-3 w-1/6">📸 Galeria & Docs</th>
                             <th class="p-3 w-1/6">⚓ Port / Amarre</th>
                             <th class="p-3 w-20">🔑 Claus</th>
-                            <th class="p-3 text-center w-24">Accions</th>
+                            {% if es_admin_emb %}<th class="p-3 text-center w-24">Accions</th>{% endif %}
                         </tr>
                     </thead>
                     <tbody id="tbodyEmbarcacions" class="divide-y divide-slate-200">
@@ -292,6 +303,7 @@
                                 <div class="text-[11px] text-slate-400">Amarre: {{ e.Amarre if e.Amarre else '-' }}</div>
                             </td>
                             <td class="p-3 align-top text-slate-600 font-semibold">🔑 {{ e.Claus if e.Claus else '-' }}</td>
+                            {% if es_admin_emb %}
                             <td class="p-3 align-top text-center">
                                 <div class="flex justify-center space-x-1">
                                     <a href="/embarcacions?edit_idx={{ e.csv_index }}" class="bg-amber-100 hover:bg-amber-200 text-amber-800 p-1.5 rounded text-xs font-bold" title="Editar Embarcació">✏️</a>
@@ -301,6 +313,7 @@
                                     </form>
                                 </div>
                             </td>
+                            {% endif %}
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -448,12 +461,14 @@ function ordenarTaula() {
 }
 
 window.onload = function() {
-    actualitzarCampsMotorsForm();
+    if (document.getElementById("num_motors_form")) actualitzarCampsMotorsForm();
     {% if emb_edit %}
         carregarModelsForm();
     {% endif %}
 };
 </script>
 {% endblock %}
+
+
 
 
