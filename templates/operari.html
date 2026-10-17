@@ -154,8 +154,15 @@
         <summary class="text-sm font-bold cursor-pointer">⚠️ Material no subministrat</summary>
         <form action="{{ url_for('operari.registrar_material_no_subministrat') }}" method="POST" class="mt-3 space-y-2 text-sm">
           <input type="hidden" name="csv_index" value="{{ t.csv_index }}"><input type="hidden" name="operari_sel" value="{{ operari_sel }}">
-          <input name="referencia" list="llista-articles-{{ t.csv_index }}" placeholder="Referència o descripció" required class="border rounded-lg p-2 w-full">
+          <label class="block font-semibold" for="referencia-{{ t.csv_index }}">Referència del material</label>
+          <input id="referencia-{{ t.csv_index }}" name="referencia" list="llista-articles-{{ t.csv_index }}" placeholder="Escriu o escaneja la referència" required class="border rounded-lg p-2 w-full" autocomplete="off">
           <datalist id="llista-articles-{{ t.csv_index }}">{% for art in articles %}<option value="{{ art.ref }}">{{ art.etiqueta }}</option>{% endfor %}</datalist>
+          <button type="button" onclick="obrirEscanerMaterial('{{ t.csv_index }}')" class="bg-blue-700 text-white px-3 py-2 rounded-lg font-bold w-full">📷 Escanejar codi de barres</button>
+          <div id="escaner-wrap-{{ t.csv_index }}" class="hidden rounded-lg border border-blue-200 bg-blue-50 p-2 space-y-2">
+            <div id="escaner-{{ t.csv_index }}" class="w-full overflow-hidden rounded-lg"></div>
+            <p id="escaner-avis-{{ t.csv_index }}" class="text-xs text-blue-900">Enfoca el codi de barres amb la càmera.</p>
+            <button type="button" onclick="tancarEscanerMaterial()" class="bg-slate-700 text-white px-3 py-2 rounded-lg font-bold w-full">✕ Tancar càmera</button>
+          </div>
           <label>Quantitat<input type="number" name="quantitat" value="1" min="1" class="border rounded-lg p-2 w-full"></label>
           <button type="submit" class="bg-red-700 text-white px-3 py-2 rounded-lg font-bold w-full">Registrar material pendent</button>
         </form>
@@ -204,15 +211,88 @@
     <div class="bg-white rounded-xl border p-10 text-center shadow-sm"><p class="text-3xl mb-2">📋</p><p class="font-bold">No tens tasques visibles assignades.</p><p class="text-sm text-slate-500 mt-2">Les tasques han de tenir data d'inici, estar assignades al teu nom i no estar en Pressupost ni arxivades.</p></div>
   {% endif %}
 </div>
+
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js" defer></script>
+<script>
+  let escanerMaterialActiu = null;
+  let escanerMaterialIdx = null;
+  let escanerMaterialFinalitzant = false;
+
+  async function tancarEscanerMaterial() {
+    const instancia = escanerMaterialActiu;
+    const idx = escanerMaterialIdx;
+    escanerMaterialActiu = null;
+    escanerMaterialIdx = null;
+    escanerMaterialFinalitzant = false;
+    if (instancia) {
+      try { await instancia.stop(); } catch (_) {}
+      try { instancia.clear(); } catch (_) {}
+    }
+    if (idx !== null) {
+      const contenidor = document.getElementById('escaner-wrap-' + idx);
+      if (contenidor) contenidor.classList.add('hidden');
+    }
+  }
+
+  async function obrirEscanerMaterial(idx) {
+    await tancarEscanerMaterial();
+    const contenidor = document.getElementById('escaner-wrap-' + idx);
+    const avis = document.getElementById('escaner-avis-' + idx);
+    if (!contenidor || !avis) return;
+    contenidor.classList.remove('hidden');
+    avis.textContent = 'Obrint càmera...';
+
+    if (!window.isSecureContext || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      avis.textContent = 'Cal obrir MotorNautic amb HTTPS per utilitzar la càmera. Pots escriure la referència manualment.';
+      return;
+    }
+    if (typeof Html5Qrcode === 'undefined') {
+      avis.textContent = 'No s’ha pogut carregar el lector de codis. Comprova la connexió o escriu la referència manualment.';
+      return;
+    }
+
+    const formats = [
+      Html5QrcodeSupportedFormats.EAN_13, Html5QrcodeSupportedFormats.EAN_8,
+      Html5QrcodeSupportedFormats.CODE_128, Html5QrcodeSupportedFormats.CODE_39,
+      Html5QrcodeSupportedFormats.ITF, Html5QrcodeSupportedFormats.UPC_A,
+      Html5QrcodeSupportedFormats.UPC_E, Html5QrcodeSupportedFormats.DATA_MATRIX,
+      Html5QrcodeSupportedFormats.QR_CODE
+    ];
+    let lector;
+    try {
+      lector = new Html5Qrcode('escaner-' + idx, { formatsToSupport: formats, verbose: false });
+      escanerMaterialActiu = lector;
+      escanerMaterialIdx = idx;
+      await lector.start(
+        { facingMode: 'environment' },
+        { fps: 10, aspectRatio: 1.777778 },
+        async (codi) => {
+          if (escanerMaterialFinalitzant) return;
+          escanerMaterialFinalitzant = true;
+          const camp = document.getElementById('referencia-' + idx);
+          if (camp) {
+            camp.value = codi.trim();
+            camp.dispatchEvent(new Event('input', { bubbles: true }));
+          }
+          avis.textContent = 'Codi llegit: ' + codi + '. Revisa la referència i indica la quantitat.';
+          await tancarEscanerMaterial();
+          if (camp) camp.focus();
+        },
+        () => {}
+      );
+      avis.textContent = 'Enfoca el codi de barres. El camp de referència s’omplirà automàticament.';
+    } catch (error) {
+      if (escanerMaterialActiu === lector) {
+        await tancarEscanerMaterial();
+      }
+      contenidor.classList.remove('hidden');
+      avis.textContent = 'No es pot obrir la càmera. Comprova els permisos del navegador o introdueix el codi manualment.';
+    }
+  }
+
+  window.addEventListener('pagehide', () => { tancarEscanerMaterial(); });
+</script>
 {% endblock %}
-
-
-
-
-
-
-
-
 
 
 
