@@ -96,7 +96,7 @@
       </div>
 
       <details class="border border-blue-200 rounded-xl bg-blue-50/50 overflow-hidden">
-        <summary class="cursor-pointer select-none text-center font-extrabold text-blue-900 py-3 px-4 hover:bg-blue-100 transition">🔽 Veure més · Fotos, material, hores i notes</summary>
+        <summary class="cursor-pointer select-none text-center font-extrabold text-blue-900 py-3 px-4 hover:bg-blue-100 transition">🔽 Veure més · Material, hores i notes</summary>
         <div class="p-3 sm:p-4 space-y-3 bg-white">
           <div class="rounded-xl border p-3 space-y-3">
         <details><summary class="text-sm font-semibold cursor-pointer">➕ Afegir hores manualment</summary>
@@ -180,28 +180,7 @@
         </form>
       </details>
 
-      <details class="rounded-xl border p-3">
-        <summary class="text-sm font-bold cursor-pointer">📷 Fotografies de l'embarcació</summary>
-        <div class="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <!-- Càmera: al mòbil sol obrir directament la càmera posterior -->
-          <form action="{{ url_for('operari.pujar_foto') }}" method="POST" enctype="multipart/form-data" class="space-y-2 rounded-lg bg-slate-50 p-3 border">
-            <input type="hidden" name="csv_index" value="{{ t.csv_index }}">
-            <input type="hidden" name="operari_sel" value="{{ operari_sel }}">
-            <label for="foto-camera-{{ t.csv_index }}" class="block text-sm font-semibold">📸 Fer una foto</label>
-            <input id="foto-camera-{{ t.csv_index }}" type="file" name="foto" accept="image/*" capture="environment" required class="w-full text-sm">
-            <button type="submit" class="w-full bg-blue-700 text-white px-4 py-2 rounded-lg font-bold text-sm">Pujar foto feta</button>
-          </form>
-          <!-- Galeria/arxius: sense capture per poder escollir una imatge existent -->
-          <form action="{{ url_for('operari.pujar_foto') }}" method="POST" enctype="multipart/form-data" class="space-y-2 rounded-lg bg-slate-50 p-3 border">
-            <input type="hidden" name="csv_index" value="{{ t.csv_index }}">
-            <input type="hidden" name="operari_sel" value="{{ operari_sel }}">
-            <label for="foto-galeria-{{ t.csv_index }}" class="block text-sm font-semibold">📁 Pujar foto de la galeria</label>
-            <input id="foto-galeria-{{ t.csv_index }}" type="file" name="foto" accept="image/*" required class="w-full text-sm">
-            <button type="submit" class="w-full bg-slate-700 text-white px-4 py-2 rounded-lg font-bold text-sm">Pujar foto existent</button>
-          </form>
-        </div>
-        {% if t.fotos %}<div class="grid grid-cols-2 gap-2 mt-3">{% for foto in t.fotos %}<a href="{{ foto }}" target="_blank" rel="noopener noreferrer"><img src="{{ foto }}" alt="Foto de l'embarcació" class="w-full h-32 object-cover rounded-lg border"></a>{% endfor %}</div>{% endif %}
-      </details>
+
 
       <div class="flex gap-2">
         {% if t.Estat == 'Finalitzada' %}
@@ -226,6 +205,39 @@
   {% endif %}
 </div>
 {% endblock %}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
