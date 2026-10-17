@@ -92,6 +92,12 @@ def requerir_login_admin():
             and session.get("operari_autenticat")):
         return
 
+    # Els operaris poden pujar fotos a la fitxa, però no editar embarcacions.
+    if (endpoint == "embarcacions.pujar_foto_fitxa"
+            and request.method == "POST"
+            and session.get("operari_autenticat")):
+        return
+
     # Els operaris poden afegir documents a la fitxa, però no editar embarcacions.
     if (endpoint == "embarcacions.afegir_document_fitxa"
             and request.method == "POST"
@@ -307,6 +313,15 @@ def eliminar_admin():
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=5000, debug=True)
+
+
+
+
+
+
+
+
+
 
 
 
