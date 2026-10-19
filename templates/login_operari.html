@@ -8,6 +8,12 @@
         <p class="text-xs text-slate-500 mt-1">Selecciona el teu usuari e introdueix la contrasenya</p>
     </div>
 
+    {% if request.args.get('reset_enviat') %}
+    <div class="bg-emerald-100 border border-emerald-400 text-emerald-800 text-xs px-3 py-2 rounded-lg mb-4 text-center font-bold">Si el correu està registrat, rebràs un enllaç de recuperació.</div>
+    {% endif %}
+    {% if request.args.get('reset_ok') %}
+    <div class="bg-emerald-100 border border-emerald-400 text-emerald-800 text-xs px-3 py-2 rounded-lg mb-4 text-center font-bold">✅ Contrasenya canviada correctament. Ja pots entrar.</div>
+    {% endif %}
     {% if msg_ok %}
     <div class="bg-emerald-100 border border-emerald-400 text-emerald-800 text-xs px-3 py-2 rounded-lg mb-4 text-center font-bold">
         ✅ {{ msg_ok }}
@@ -62,3 +68,4 @@
     </div>
 </div>
 {% endblock %}
+
