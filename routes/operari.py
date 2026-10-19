@@ -145,8 +145,51 @@ def carregar_df_operaris():
 # RUTES DE L'OPERARI
 # ---------------------------------------------------------------------
 
-@operari_bp.route("/operari", methods=["GET"])
+@operari_bp.route("/operari", methods=["GET", "POST"])
 def vista_operari():
+    # Desa els checks sense modificar l'estat general de la tasca.
+    if request.method == "POST":
+        if request.form.get("accio") != "toggle_checklist":
+            return jsonify({"ok": False, "error": "Acció no permesa"}), 400
+        operari_actual = (session.get("operari_autenticat") or "").strip()
+        es_admin_actual = bool(session.get("admin_autenticat"))
+        if not (operari_actual or es_admin_actual):
+            return jsonify({"ok": False, "error": "Sessió caducada"}), 401
+        try:
+            tasca_idx = int(request.form.get("csv_index", ""))
+            item_idx = int(request.form.get("item_index", ""))
+        except (ValueError, TypeError):
+            return jsonify({"ok": False, "error": "Índex invàlid"}), 400
+        valor = request.form.get("fet")
+        if valor not in ("0", "1"):
+            return jsonify({"ok": False, "error": "Valor invàlid"}), 400
+        df = carregar_tasques()
+        if not 0 <= tasca_idx < len(df):
+            return jsonify({"ok": False, "error": "Tasca inexistent"}), 404
+        assignats = [n.strip().casefold() for n in str(df.iloc[tasca_idx].get("Operari", "")).split(",") if n.strip()]
+        if not es_admin_actual and operari_actual.casefold() not in assignats:
+            return jsonify({"ok": False, "error": "Tasca no assignada"}), 403
+
+        detall = str(df.iloc[tasca_idx].get("Tasques_Detall", "") or "")
+        if detall.lower() in ("nan", "none"):
+            detall = ""
+        linies = detall.splitlines(keepends=True)
+        posicions = [i for i, linia in enumerate(linies) if linia.strip()]
+        if not 0 <= item_idx < len(posicions):
+            return jsonify({"ok": False, "error": "Element inexistent"}), 404
+        pos = posicions[item_idx]
+        linia = linies[pos]
+        salt = "\r\n" if linia.endswith("\r\n") else "\n" if linia.endswith("\n") else ""
+        contingut = linia[:-len(salt)] if salt else linia
+        # Manté el text i la indentació originals, modifica només la marca.
+        coincidencia = re.match(r"^(\s*)(?:\[(?:[xX]| )\]\s*)?(.*)$", contingut)
+        prefix, text_item = coincidencia.groups()
+        if not text_item.strip():
+            return jsonify({"ok": False, "error": "Element buit"}), 400
+        linies[pos] = f"{prefix}{'[x]' if valor == '1' else '[ ]'} {text_item}{salt}"
+        df.at[df.index[tasca_idx], "Tasques_Detall"] = "".join(linies)
+        guardar_tasques(df)
+        return jsonify({"ok": True, "fet": valor == "1"})
     operaris = carregar_operaris()
     es_admin = bool(session.get("admin_autenticat"))
     
@@ -719,6 +762,20 @@ def eliminar_material_no_subministrat():
         return redirect(url_for("operari.vista_operari", operari=operari_sel))
     else:
         return redirect(request.referrer or url_for("operari.vista_operari"))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
