@@ -1,10 +1,13 @@
-from flask import Blueprint, render_template, request, redirect, url_for, current_app, jsonify, session, flash, make_response
+from flask import Blueprint, render_template, request, redirect, url_for, current_app, jsonify, session, flash, make_response, abort
 from datetime import datetime, timedelta
 import pandas as pd
 import re, os, json, random, string
 import urllib.parse
+import secrets, hashlib, hmac, ssl
+from sqlalchemy import text
+from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
-from db import carregar_operaris, carregar_tasques, guardar_tasques, carregar_articles
+from db import carregar_operaris, carregar_tasques, guardar_tasques, carregar_articles, carregar_taula, get_engine
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
@@ -128,18 +131,93 @@ def calcular_total_formatted(text_comentaris):
     return f"{hores}h {minuts:02d}m"
 
 def carregar_df_operaris():
-    fitxer_op = os.path.join(os.getcwd(), 'operaris.csv')
-    columnes = ["Nom", "Cognoms", "Telefon", "Email", "Password", "Reset_Code", "Reset_Expiry"]
-    if os.path.exists(fitxer_op):
-        try:
-            df = pd.read_csv(fitxer_op, dtype=str).fillna('')
-            for col in columnes:
-                if col not in df.columns:
-                    df[col] = ""
-            return df
-        except Exception:
-            return pd.DataFrame(columns=columnes)
-    return pd.DataFrame(columns=columnes)
+    # La base de dades PostgreSQL és la font de veritat a Railway.
+    return carregar_taula('operaris', 'operaris.csv',
+                         ['Nom', 'Cognoms', 'Telefon', 'Email', 'Password', 'Reset_Code', 'Reset_Expiry'])
+
+
+def _es_password_valida(contrasenya_entrada, guardada, nom):
+    actual = (guardada or '').strip()
+    if actual.startswith(('scrypt:', 'pbkdf2:')):
+        return check_password_hash(actual, contrasenya_entrada)
+    # Compatibilitat amb contrasenyes antigues, fins que es canviïn.
+    antiga = actual or nom
+    return hmac.compare_digest(contrasenya_entrada.upper(), antiga.upper())
+
+
+def _guardar_camps_operari(nom, camps):
+    # Actualitza exclusivament l'operari corresponent, no tota la taula.
+    engine = get_engine()
+    if engine is not None:
+        camps_permesos = {'Password', 'Reset_Code', 'Reset_Expiry'}
+        if not camps or not set(camps).issubset(camps_permesos):
+            return False
+        updates = ', '.join('"' + camp + '" = :' + camp for camp in camps)
+        with engine.begin() as conn:
+            result = conn.execute(
+                text(f'UPDATE operaris SET {updates} WHERE LOWER(TRIM("Nom")) = :nom'),
+                {**camps, 'nom': nom.casefold()}
+            )
+            return result.rowcount == 1
+    # Mode de desenvolupament sense PostgreSQL.
+    df = carregar_df_operaris()
+    match = df.index[df['Nom'].astype(str).str.strip().str.casefold() == nom.casefold()]
+    if len(match) != 1:
+        return False
+    for k, v in camps.items():
+        df.at[match[0], k] = v
+    df.to_csv(os.path.join(os.getcwd(), 'operaris.csv'), index=False)
+    return True
+
+
+def _correu_recuperacio(destinatari, enllac):
+    host = os.environ.get('SMTP_HOST') or current_app.config.get('MAIL_SERVER')
+    port = int(os.environ.get('SMTP_PORT') or current_app.config.get('MAIL_PORT', 465))
+    usuari = os.environ.get('SMTP_USERNAME') or current_app.config.get('MAIL_USERNAME')
+    # No utilitzem contrasenyes incloses en el codi. Cal SMTP_PASSWORD a Railway.
+    clau = os.environ.get('SMTP_PASSWORD')
+    remitent = os.environ.get('SMTP_FROM') or usuari
+    if not all((host, usuari, clau, remitent)):
+        raise RuntimeError('Falta configurar SMTP_HOST/SMTP_USERNAME/SMTP_PASSWORD/SMTP_FROM')
+
+    msg = MIMEText(
+        'Hem rebut una sol·licitud per canviar la teva contrasenya de MotorNautic.\n\n'
+        f'Obre aquest enllaç (vàlid 15 minuts i d’un sol ús):\n{enllac}\n\n'
+        'Si no ho has sol·licitat tu, ignora aquest missatge.', 'plain', 'utf-8'
+    )
+    msg['Subject'] = 'MotorNautic - Recuperació de contrasenya'
+    msg['From'] = remitent
+    msg['To'] = destinatari
+    if port == 465:
+        with smtplib.SMTP_SSL(host, port, timeout=15, context=ssl.create_default_context()) as smtp:
+            smtp.login(usuari, clau)
+            smtp.send_message(msg)
+    else:
+        with smtplib.SMTP(host, port, timeout=15) as smtp:
+            smtp.starttls(context=ssl.create_default_context())
+            smtp.login(usuari, clau)
+            smtp.send_message(msg)
+
+
+def _validar_token_reset(token):
+    if not token or len(token) > 160:
+        return None
+    hash_token = hashlib.sha256(token.encode('utf-8')).hexdigest()
+    df = carregar_df_operaris()
+    if df.empty:
+        return None
+    coincidencies = df[df['Reset_Code'].astype(str) == hash_token]
+    if len(coincidencies) != 1:
+        return None
+    registre = coincidencies.iloc[0]
+    try:
+        expiracio = datetime.fromisoformat(str(registre['Reset_Expiry']))
+        if datetime.utcnow() > expiracio:
+            return None
+    except (ValueError, TypeError):
+        return None
+    return str(registre['Nom'])
+
 
 # ---------------------------------------------------------------------
 # RUTES DE L'OPERARI
@@ -193,13 +271,10 @@ def vista_operari():
     operaris = carregar_operaris()
     es_admin = bool(session.get("admin_autenticat"))
     
-    operari_req = request.args.get("operari")
-    operari_autenticat = session.get("operari_autenticat") or request.cookies.get("operari_saved")
-    
-    operari_sel = operari_req or operari_autenticat
-    
-    if operari_sel:
-        session["operari_autenticat"] = operari_sel
+    if request.args.get("triar_operari") == "1":
+        return render_template("login_operari.html", operaris=operaris, operari_sel=None, error=request.args.get("error_auth"))
+
+    operari_sel = session.get("operari_autenticat")
 
     # Si NO hi ha cap operari seleccionat ni guardat, demanem selecció/login d'operari
     if not operari_sel:
@@ -307,29 +382,46 @@ def vista_operari():
 
 @operari_bp.route("/login_operari", methods=["POST"])
 def login_operari():
-    operari_sel = request.form.get("operari", "").strip()
-    password_input = request.form.get("password", "").strip()
-    
+    operari_sel = (request.form.get('operari') or '').strip()
+    password_input = request.form.get('password') or ''
     df_operaris = carregar_df_operaris()
-    
-    if not df_operaris.empty and "Nom" in df_operaris.columns:
-        row = df_operaris[df_operaris["Nom"].str.upper() == str(operari_sel).upper()]
-        if not row.empty:
-            pwd_guardada = str(row.iloc[0].get("Password", "")).strip()
-            pwd_esperada = pwd_guardada if pwd_guardada else operari_sel
-            
-            if password_input.upper() == pwd_esperada.upper():
-                session["operari_autenticat"] = operari_sel
-                response = make_response(redirect(url_for("operari.vista_operari", operari=operari_sel)))
-                response.set_cookie("operari_saved", operari_sel, max_age=30*24*3600)
-                return response
-    
-    return redirect(url_for("operari.vista_operari", operari=operari_sel, error_auth=1))
+    if not df_operaris.empty:
+        coincidencies = df_operaris[df_operaris['Nom'].astype(str).str.casefold() == operari_sel.casefold()]
+        if len(coincidencies) == 1:
+            fila = coincidencies.iloc[0]
+            nom_real = str(fila['Nom'])
+            if _es_password_valida(password_input, str(fila.get('Password','')), nom_real):
+                session['operari_autenticat'] = nom_real
+                resp = make_response(redirect(url_for('operari.vista_operari')))
+                resp.set_cookie('operari_saved', nom_real, max_age=30*24*3600, samesite='Lax')
+                return resp
+    return redirect(url_for('operari.vista_operari', triar_operari=1, error_auth=1))
+
+
+@operari_bp.route("/canviar_operari_admin", methods=["POST"])
+def canviar_operari_admin():
+    if not session.get("admin_autenticat"):
+        return redirect(url_for("vista_login_admin"))
+
+    nom = (request.form.get("operari") or "").strip()
+    operaris_disponibles = carregar_operaris()
+    seleccionat = next(
+        (op for op in operaris_disponibles if str(op).strip().casefold() == nom.casefold()),
+        None
+    )
+    if seleccionat is None:
+        return redirect(url_for("operari.vista_operari"))
+
+    session["operari_autenticat"] = seleccionat
+    resposta = make_response(redirect(url_for("operari.vista_operari")))
+    resposta.set_cookie("operari_saved", seleccionat, max_age=30*24*3600, samesite="Lax")
+    return resposta
+
 
 @operari_bp.route("/logout_operari", methods=["POST"])
 def logout_operari():
     session.pop("operari_autenticat", None)
-    response = make_response(redirect(url_for("operari.vista_operari")))
+    response = make_response(redirect(url_for("operari.vista_operari", triar_operari=1)))
     response.delete_cookie("operari_saved")
     return response
 
@@ -625,39 +717,80 @@ def afegir_operari():
 
 @operari_bp.route("/canviar_contrasenya", methods=["POST"])
 def canviar_contrasenya():
-    operari_sel = request.form.get("operari_sel", "").strip() or session.get("operari_autenticat", "").strip()
-    pwd_actual = request.form.get("pwd_actual", "").strip()
-    pwd_nova = request.form.get("pwd_nova", "").strip()
-    
-    if not operari_sel or not pwd_nova:
-        return redirect(url_for("operari.vista_operari", operari=operari_sel, pwd_err=1))
-
+    nom = (session.get('operari_autenticat') or '').strip()
+    actual = request.form.get('pwd_actual') or ''
+    nova = request.form.get('pwd_nova') or ''
+    if not nom or len(nova) < 8:
+        return redirect(url_for('operari.vista_operari', pwd_err=1))
+    df = carregar_df_operaris()
+    match = df[df['Nom'].astype(str).str.casefold() == nom.casefold()]
+    if len(match) != 1 or not _es_password_valida(actual, str(match.iloc[0].get('Password','')), nom):
+        return redirect(url_for('operari.vista_operari', pwd_err=1))
     try:
-        fitxer_op = os.path.join(os.getcwd(), 'operaris.csv')
-        df_operaris = carregar_df_operaris()
-        
-        if not df_operaris.empty and "Nom" in df_operaris.columns:
-            if "Password" not in df_operaris.columns:
-                df_operaris["Password"] = ""
+        ok = _guardar_camps_operari(nom, {'Password': generate_password_hash(nova)})
+    except Exception:
+        current_app.logger.exception('Error guardant contrasenya operari')
+        ok = False
+    return redirect(url_for('operari.vista_operari', **({'pwd_ok': 1} if ok else {'pwd_err': 1})))
 
-            for idx, row in df_operaris.iterrows():
-                nom_csv = str(row.get("Nom", "")).strip()
-                
-                if nom_csv.upper() == operari_sel.upper():
-                    pwd_guardada = str(row.get("Password", "")).strip()
-                    pwd_esperada = pwd_guardada if pwd_guardada else nom_csv
-                    
-                    if pwd_actual.upper() == pwd_esperada.upper():
-                        df_operaris.at[idx, "Password"] = pwd_nova
-                        df_operaris.to_csv(fitxer_op, index=False)
-                        return redirect(url_for("operari.vista_operari", operari=operari_sel, pwd_ok=1))
-                    else:
-                        return redirect(url_for("operari.vista_operari", operari=operari_sel, pwd_err=1))
 
-    except Exception as e:
-        print(f"⚠️ Error en canviar la contrasenya: {e}")
+@operari_bp.route('/sollicitar_recuperacio', methods=['POST'])
+def sollicitar_recuperacio():
+    email = (request.form.get('email') or '').strip().casefold()
+    # Missatge sempre genèric per no revelar quins correus tenen compte.
+    msg = 'Si el correu està registrat, rebràs un enllaç per canviar la contrasenya.'
+    if not email or len(email) > 254:
+        return redirect(url_for('operari.vista_operari', triar_operari=1, reset_enviat=1))
+    df = carregar_df_operaris()
+    if not df.empty and 'Email' in df.columns:
+        files = df[df['Email'].astype(str).str.strip().str.casefold() == email]
+        if len(files) == 1:
+            nom = str(files.iloc[0]['Nom']).strip()
+            token = secrets.token_urlsafe(32)
+            hash_token = hashlib.sha256(token.encode('utf-8')).hexdigest()
+            expiracio = (datetime.utcnow() + timedelta(minutes=15)).isoformat()
+            enllac = url_for('operari.validar_codi_recuperacio', token=token, _external=True)
+            try:
+                if _guardar_camps_operari(nom, {'Reset_Code': hash_token, 'Reset_Expiry': expiracio}):
+                    _correu_recuperacio(str(files.iloc[0]['Email']).strip(), enllac)
+            except Exception:
+                current_app.logger.exception('Error enviant recuperació operari')
+    return redirect(url_for('operari.vista_operari', triar_operari=1, reset_enviat=1))
 
-    return redirect(url_for("operari.vista_operari", operari=operari_sel, pwd_err=1))
+
+@operari_bp.route('/validar_codi_recuperacio', methods=['GET', 'POST'])
+def validar_codi_recuperacio():
+    token = (request.values.get('token') or '').strip()
+    nom = _validar_token_reset(token)
+    if not nom:
+        return render_template('reset_operari.html', token='', error='Enllaç invàlid o caducat.'), 400
+    if request.method == 'GET':
+        return render_template('reset_operari.html', token=token, error=None)
+
+    nova = request.form.get('nova_password') or ''
+    confirmacio = request.form.get('confirmar_password') or ''
+    if len(nova) < 8 or nova != confirmacio:
+        return render_template('reset_operari.html', token=token, error='La contrasenya ha de tenir almenys 8 caràcters i coincidir.'), 400
+    try:
+        engine = get_engine()
+        if engine is not None:
+            # Consum atòmic del token: evita que es faci servir una segona vegada.
+            with engine.begin() as conn:
+                result = conn.execute(text('UPDATE operaris SET "Password" = :pwd, "Reset_Code" = :empty, "Reset_Expiry" = :empty WHERE LOWER(TRIM("Nom")) = :nom AND "Reset_Code" = :token'),
+                    {'pwd': generate_password_hash(nova), 'nom': nom.casefold(), 'token': hashlib.sha256(token.encode()).hexdigest(), 'empty': ''})
+                ok = result.rowcount == 1
+        else:
+            ok = _guardar_camps_operari(nom, {'Password': generate_password_hash(nova), 'Reset_Code': '', 'Reset_Expiry': ''})
+    except Exception:
+        current_app.logger.exception('Error restablint contrasenya')
+        ok = False
+    if not ok:
+        return render_template('reset_operari.html', token='', error='No s’ha pogut actualitzar la contrasenya. Torna a sol·licitar l’enllaç.'), 400
+    session.pop('operari_autenticat', None)
+    response = make_response(redirect(url_for('operari.vista_operari', triar_operari=1, reset_ok=1)))
+    response.delete_cookie('operari_saved')
+    return response
+
 
 @operari_bp.route("/recuperar_contrasenya", methods=["POST"])
 def recuperar_contrasenya():
@@ -762,6 +895,19 @@ def eliminar_material_no_subministrat():
         return redirect(url_for("operari.vista_operari", operari=operari_sel))
     else:
         return redirect(request.referrer or url_for("operari.vista_operari"))
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
