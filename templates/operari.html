@@ -64,8 +64,15 @@
       <div class="bg-slate-50 rounded-lg p-3">
         <p class="text-xs font-bold text-slate-600 mb-2">Treballs previstos</p>
         {% for item in t.checklist %}
-          <p class="text-sm py-1 {% if item.fet %}line-through text-green-700{% else %}text-slate-800{% endif %}">{% if item.fet %}✅{% else %}☐{% endif %} {{ item.text }}</p>
+          <label class="flex items-start gap-3 rounded-lg py-2 cursor-pointer select-none" for="check-{{ t.csv_index }}-{{ item.item_index }}">
+            <input type="checkbox" id="check-{{ t.csv_index }}-{{ item.item_index }}"
+                   class="mt-1 w-5 h-5 accent-green-700 shrink-0"
+                   {% if item.fet %}checked{% endif %}
+                   onchange="guardarCheckTasca(this, {{ t.csv_index }}, {{ item.item_index }})">
+            <span class="text-sm {% if item.fet %}line-through text-green-700{% else %}text-slate-800{% endif %}">{{ item.text }}</span>
+          </label>
         {% else %}<p class="text-sm whitespace-pre-wrap">{{ t.Tasques_Detall }}</p>{% endfor %}
+        <p id="check-status-{{ t.csv_index }}" class="text-xs text-slate-500" aria-live="polite"></p>
       </div>
       {% endif %}
 
@@ -292,7 +299,90 @@
 
   window.addEventListener('pagehide', () => { tancarEscanerMaterial(); });
 </script>
+<script>
+async function guardarCheckTasca(casella, tascaIdx, itemIdx) {
+  const etiqueta = casella.closest('label');
+  const titol = etiqueta ? etiqueta.querySelector('span') : null;
+  const estat = document.getElementById('check-status-' + tascaIdx);
+  const nouValor = casella.checked;
+  casella.disabled = true;
+  if (estat) estat.textContent = 'Desant...';
+  const dades = new URLSearchParams({
+    accio: 'toggle_checklist',
+    csv_index: String(tascaIdx),
+    item_index: String(itemIdx),
+    fet: nouValor ? '1' : '0'
+  });
+  try {
+    const resposta = await fetch("{{ url_for('operari.vista_operari') }}", {
+      method: 'POST',
+      body: dades,
+      credentials: 'same-origin',
+      headers: {'Accept': 'application/json'}
+    });
+    const resultat = await resposta.json();
+    if (!resposta.ok || !resultat.ok) throw new Error(resultat.error || 'Error en desar');
+    if (titol) {
+      titol.classList.toggle('line-through', nouValor);
+      titol.classList.toggle('text-green-700', nouValor);
+      titol.classList.toggle('text-slate-800', !nouValor);
+    }
+    if (estat) estat.textContent = '✓ Desat';
+  } catch (err) {
+    casella.checked = !nouValor;
+    if (estat) estat.textContent = '⚠️ No s’ha desat: ' + err.message;
+  } finally {
+    casella.disabled = false;
+  }
+}
+</script>
 {% endblock %}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
