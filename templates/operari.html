@@ -9,9 +9,21 @@
     </div>
     <div class="flex gap-2 items-center">
       <span class="bg-blue-700 px-3 py-2 rounded-lg text-sm font-bold">{{ tasques|length }} tasques</span>
+      {% if es_admin %}
+      <form action="{{ url_for('operari.canviar_operari_admin') }}" method="POST" class="flex flex-wrap items-center gap-2">
+        <label for="seleccio-operari-admin" class="sr-only">Seleccionar operari</label>
+        <select id="seleccio-operari-admin" name="operari" class="bg-white text-blue-900 border-0 rounded-lg px-3 py-2 text-sm font-bold max-w-44" required>
+          {% for nom_op in operaris %}
+          <option value="{{ nom_op }}" {% if nom_op == operari_sel %}selected{% endif %}>{{ nom_op }}</option>
+          {% endfor %}
+        </select>
+        <button class="bg-white text-blue-900 px-3 py-2 rounded-lg text-sm font-bold" type="submit">Canviar operari</button>
+      </form>
+      {% else %}
       <form action="{{ url_for('operari.logout_operari') }}" method="POST">
         <button class="bg-white text-blue-900 px-3 py-2 rounded-lg text-sm font-bold" type="submit">Sortir d'operari</button>
       </form>
+      {% endif %}
     </div>
   </div>
 
@@ -337,6 +349,45 @@ async function guardarCheckTasca(casella, tascaIdx, itemIdx) {
 }
 </script>
 {% endblock %}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
