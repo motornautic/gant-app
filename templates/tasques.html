@@ -126,6 +126,12 @@
                 <input type="date" name="data_fi" class="w-full p-2 border rounded text-xs bg-slate-50 font-semibold">
             </div>
 
+            <div class="lg:col-span-2">
+                <label class="block text-xs font-bold mb-1" for="hores-estimades-crear">⏳ Hores estimades</label>
+                <input id="hores-estimades-crear" type="number" name="hores_estimades" min="0.01" max="100000" step="0.01" placeholder="Ex.: 5" inputmode="decimal" class="w-full p-2 border rounded text-xs bg-slate-50">
+                <p class="text-[10px] text-slate-500 mt-1">Previsió total de la feina (tots els operaris)</p>
+            </div>
+
             <!-- 👷 DESPLEGABLE D'OPERARIS MILLORAT (SENSE SCROLL) -->
             <div class="lg:col-span-3">
                 <label class="block text-xs font-bold mb-1">Operaris Assignats</label>
@@ -271,7 +277,24 @@
                     </div>
 
                     {% if t.hores_formatted %}
-                    <div>⏱️ Temps: <strong class="text-blue-900">{{ t.hores_formatted }}</strong></div>
+                    <div>⏱️ Hores reals imputades: <strong class="text-blue-900">{{ t.hores_formatted }}</strong></div>
+                    {% endif %}
+                    {% if t.te_estimacio %}
+                    <div class="mt-2 rounded-lg border p-2 {% if t.estat_estimacio == 'superat' %}bg-red-50 border-red-200{% elif t.estat_estimacio == 'limit' %}bg-amber-50 border-amber-200{% else %}bg-emerald-50 border-emerald-200{% endif %}">
+                      <div class="flex justify-between items-center gap-1 font-bold text-[10px]">
+                        <span>🎯 Previstes: {{ t.hores_estimades_visual }} h</span>
+                        <span>{{ t.percentatge }}%</span>
+                      </div>
+                      <div class="w-full h-2.5 rounded-full bg-slate-200 overflow-hidden mt-1" role="progressbar" aria-label="Hores reals respecte a les estimades" aria-valuenow="{{ t.percentatge }}" aria-valuemin="0" aria-valuemax="100">
+                        <div class="h-full rounded-full {% if t.estat_estimacio == 'superat' %}bg-red-600{% elif t.estat_estimacio == 'limit' %}bg-amber-500{% else %}bg-emerald-600{% endif %}" style="width: {{ t.ample_barra }}%"></div>
+                      </div>
+                      <p class="mt-1 text-[10px] font-semibold {% if t.estat_estimacio == 'superat' %}text-red-800{% elif t.estat_estimacio == 'limit' %}text-amber-800{% else %}text-emerald-800{% endif %}">
+                      {% if t.estat_estimacio == 'superat' %}🔴 Superades: +{{ t.desviacio_text }}
+                      {% elif t.estat_estimacio == 'limit' %}🟠 A prop del límit ({{ t.desviacio_text }} restants)
+                      {% else %}🟢 Dins del previst ({{ t.desviacio_text }} restants){% endif %}</p>
+                    </div>
+                    {% else %}
+                    <div class="text-[10px] text-slate-400">🎯 Sense hores estimades</div>
                     {% endif %}
                 </div>
 
@@ -403,6 +426,12 @@
                     <input type="date" name="data_fi" value="{{ tasca_edit.Data_Fi if tasca_edit.Data_Fi else '' }}" class="w-full p-2 border rounded text-xs bg-slate-50 font-semibold">
                 </div>
 
+                <div class="md:col-span-2">
+                    <label class="block text-xs font-bold mb-1" for="hores-estimades-editar">⏳ Hores estimades</label>
+                    <input id="hores-estimades-editar" name="hores_estimades" type="number" min="0.01" max="100000" step="0.01" inputmode="decimal" value="{{ tasca_edit.Hores_Estimades|default('', true) }}" placeholder="Ex.: 5" class="w-full p-2 border rounded text-xs bg-slate-50">
+                    <p class="text-[10px] text-slate-500 mt-1">Deixa-ho buit si encara no hi ha estimació</p>
+                </div>
+
                 <!-- 👷 DESPLEGABLE D'OPERARIS DINS EL MODAL D'EDICIÓ -->
                 <div class="md:col-span-2">
                     <label class="block text-xs font-bold mb-1">Operaris Assignats</label>
@@ -465,6 +494,14 @@
                     </span>
                 </div>
             </div>
+
+            {% if tasca_view.te_estimacio %}
+            <div class="rounded-xl border p-3 {% if tasca_view.estat_estimacio == 'superat' %}bg-red-50 border-red-200{% elif tasca_view.estat_estimacio == 'limit' %}bg-amber-50 border-amber-200{% else %}bg-emerald-50 border-emerald-200{% endif %}">
+                <div class="flex justify-between text-xs font-bold mb-2"><span>🎯 Previsió: {{ tasca_view.hores_estimades_visual }} h</span><span>⏱️ Real: {{ tasca_view.hores_formatted }}</span></div>
+                <div class="w-full rounded-full bg-slate-200 h-3 overflow-hidden"><div class="h-3 rounded-full {% if tasca_view.estat_estimacio == 'superat' %}bg-red-600{% elif tasca_view.estat_estimacio == 'limit' %}bg-amber-500{% else %}bg-emerald-600{% endif %}" style="width: {{ tasca_view.ample_barra }}%"></div></div>
+                <p class="mt-2 text-xs font-bold">{{ tasca_view.percentatge }}% · {% if tasca_view.estat_estimacio == 'superat' %}Superades +{{ tasca_view.desviacio_text }}{% else %}Resten {{ tasca_view.desviacio_text }}{% endif %}</p>
+            </div>
+            {% endif %}
 
             <div>
                 <h4 class="font-bold text-slate-900 mb-2 flex items-center space-x-1">
@@ -705,4 +742,5 @@ function filtrarVistaEstat(estatDemanat) {
 }
 </script>
 {% endblock %}
+
 
