@@ -7,6 +7,7 @@ from db import carregar_tasques, guardar_tasques, carregar_operaris
 from routes.embarcacions import carregar_embarcacions
 from routes.operari import extreure_historial_hores, extreure_historial_material, calcular_total_formatted, extreure_historial_material_no_subministrat
 from datetime import datetime, timedelta
+from decimal import Decimal, InvalidOperation
 
 tasques_bp = Blueprint('tasques', __name__)
 
@@ -27,6 +28,65 @@ def obtenir_operaris_crono_actiu(valor):
     # Registres antics amb un únic inici de crono.
     return ["General"]
 
+
+
+def _llegir_estimacio(valor):
+    """Admet 2,5 o 2.5 hores. Valor buit = sense estimació."""
+    raw = str(valor or "").strip().replace(",", ".")
+    if not raw or raw.lower() in ("nan", "none"):
+        return None
+    try:
+        n = Decimal(raw)
+        if not n.is_finite() or not (Decimal('0') < n <= Decimal('100000')):
+            return None
+        return n
+    except InvalidOperation:
+        return None
+
+
+def _validar_estimacio_formulari(valor):
+    raw = str(valor or "").strip()
+    if not raw:
+        return ""
+    n = _llegir_estimacio(raw)
+    if n is None:
+        return None
+    return format(n, 'f')
+
+
+def _hores_reals_minuts(historial):
+    """Suma durades de registres de treball ja tancats (sense hores del crono actiu)."""
+    total = 0
+    for h in historial:
+        durada = str(h.get('total', ''))
+        match = re.search(r'(\d+)h\s*(\d+)m', durada)
+        if match:
+            total += int(match.group(1)) * 60 + int(match.group(2))
+        else:
+            # Compatibilitat amb registres antics; es descarta durada malformada.
+            continue
+    return total
+
+
+def _resum_estimacio(row, historial):
+    estimacio = _llegir_estimacio(row.get('Hores_Estimades', ''))
+    reals = _hores_reals_minuts(historial)
+    if estimacio is None:
+        return {'te_estimacio': False, 'hores_reals': reals // 60,
+                'minuts_reals': reals % 60, 'percentatge': 0,
+                'ample_barra': 0, 'desviacio_text': '', 'estat_estimacio': 'sense'}
+    estimats = float(estimacio)
+    percentatge = (reals / 60) / estimats * 100
+    delta = reals - round(estimats * 60)
+    minuts_abs = abs(delta)
+    desviacio = f'{minuts_abs // 60}h {minuts_abs % 60:02d}m'
+    return {
+        'te_estimacio': True, 'hores_estimades_visual': str(estimacio).replace('.', ','),
+        'hores_reals': reals // 60, 'minuts_reals': reals % 60,
+        'percentatge': round(percentatge), 'ample_barra': min(100, max(0, percentatge)),
+        'desviacio_text': desviacio,
+        'estat_estimacio': 'superat' if percentatge > 100 else 'limit' if percentatge >= 90 else 'be',
+    }
 
 @tasques_bp.route("/tasques/cronometres-actius", methods=["GET"])
 def cronometres_actius():
@@ -66,6 +126,7 @@ def vista_tasques():
             item["csv_index"] = idx
             item["hores_formatted"] = calcular_total_formatted(item.get("Comentaris_Operari", ""))
             item["historial_hores"] = extreure_historial_hores(item.get("Comentaris_Operari", ""))
+            item.update(_resum_estimacio(item, item["historial_hores"]))
             item["historial_material"] = extreure_historial_material(item.get("Material_Demanat", ""))
             item["historial_mat_no_subministrat"] = extreure_historial_material_no_subministrat(item.get("Material_No_Subministrat", ""))
 
@@ -109,6 +170,9 @@ def afegir_tasca():
     detall = request.form.get("detall", "").strip()
     prioritat = request.form.get("prioritat", "Normal")
     estat_inicial = request.form.get("estat_inicial", "Pendent").strip()
+    estimacio = _validar_estimacio_formulari(request.form.get('hores_estimades'))
+    if estimacio is None:
+        return 'Hores estimades invàlides: indica un nombre positiu (per exemple 2,5).', 400
     
     avui_str = datetime.now().strftime("%Y-%m-%d")
     data_inici = request.form.get("data_inici", "").strip()
@@ -135,6 +199,7 @@ def afegir_tasca():
             "Data_Fi": data_fi,
             "Inici_Crono": "",
             "Hores_Imputades": "0",
+            "Hores_Estimades": estimacio,
             "Comentaris_Operari": "",
             "Notes_Text": "",
             "Material_Demanat": "",
@@ -148,9 +213,15 @@ def afegir_tasca():
 @tasques_bp.route("/editar_tasca", methods=["POST"])
 def editar_tasca():
     idx = int(request.form.get("csv_index"))
+    estimacio = _validar_estimacio_formulari(request.form.get('hores_estimades'))
+    if estimacio is None:
+        return 'Hores estimades invàlides: indica un nombre positiu (per exemple 2,5).', 400
     df = carregar_tasques()
-    
+
     if 0 <= idx < len(df):
+        if 'Hores_Estimades' not in df.columns:
+            df['Hores_Estimades'] = ''
+        df.at[df.index[idx], 'Hores_Estimades'] = estimacio
         operaris_llista = request.form.getlist("operaris")
         operaris_str = ", ".join(operaris_llista) if operaris_llista else request.form.get("operari", "").strip()
         
@@ -254,6 +325,8 @@ def toggle_pressupost_enviat():
         guardar_tasques(df)
         
     return redirect(url_for("tasques.vista_tasques"))
+
+
 
 
 
