@@ -491,7 +491,22 @@ def aturar_crono():
                 nou_com = f"{com_actual} | {nova_nota}" if com_actual else nova_nota
                 df.at[idx, "Comentaris_Operari"] = nou_com
                 df.at[idx, "Hores_Imputades"] = calcular_total_formatted(nou_com)
-                
+
+                # Incidències d'aquest període, sense sobreescriure les notes existents.
+                observacions = (request.form.get("observacions_crono") or "").strip()[:4000]
+                if observacions:
+                    if "Notes_Text" not in df.columns:
+                        df["Notes_Text"] = ""
+                    anterior = str(df.at[idx, "Notes_Text"] or "").strip()
+                    if anterior.lower() in ("nan", "none"):
+                        anterior = ""
+                    capcalera = (
+                        f"[INCIDÈNCIA CRONÒMETRE | {operari_sel} | {data_avui} "
+                        f"{hora_i}-{hora_f} | {h_int}h {m_int:02d}m]"
+                    )
+                    entrada = f"{capcalera}\n{observacions}"
+                    df.at[idx, "Notes_Text"] = f"{anterior}\n\n{entrada}" if anterior else entrada
+
             except Exception as e:
                 print(f"Error calculant crono: {e}")
                 
@@ -895,6 +910,47 @@ def eliminar_material_no_subministrat():
         return redirect(url_for("operari.vista_operari", operari=operari_sel))
     else:
         return redirect(request.referrer or url_for("operari.vista_operari"))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
