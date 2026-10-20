@@ -38,6 +38,29 @@ def extreure_historial_hores(text_comentaris):
         })
     return registres
 
+def vincular_observacions_historial(registres, notes):
+    """Relaciona observacions antigues i noves amb el període concret del cronòmetre."""
+    patron = re.compile(
+        r"\[(?:INCIDÈNCIA CRONÒMETRE|OBSERVACIÓ)\s*\|\s*([^|\]\n]+)"
+        r"\s*\|\s*(\d{2}/\d{2}/\d{2})\s+"
+        r"(\d{2}:\d{2})-(\d{2}:\d{2})\s*\|\s*[^\]]+\]"
+        r"\s*\n(.*?)(?=\n\s*\n|\n\[(?:INCIDÈNCIA CRONÒMETRE|OBSERVACIÓ)\s*\||\Z)",
+        re.S | re.I
+    )
+    observacions = {}
+    for m in patron.finditer(str(notes or '')):
+        op, dia, inici, fi, contingut = m.groups()
+        clau = (op.strip().casefold(), dia, inici, fi)
+        contingut = contingut.strip()
+        if contingut:
+            observacions.setdefault(clau, []).append(contingut)
+    for reg in registres:
+        clau = (str(reg['operari']).strip().casefold(), reg['data'], reg['inici'], reg['fi'])
+        disponibles = observacions.get(clau, [])
+        reg['observacio'] = disponibles.pop(0) if disponibles else ''
+    return registres
+
+
 def extreure_historial_material(text_material):
     if not text_material or pd.isna(text_material): 
         return []
@@ -346,10 +369,14 @@ def vista_operari():
                 
                 item["crono_actiu_operari"] = crono_dict.get(operari_sel, "")
                 item["hores_formatted"] = calcular_total_formatted(item.get("Comentaris_Operari", ""))
-                item["historial_hores"] = extreure_historial_hores(item.get("Comentaris_Operari", ""))
+                item["historial_hores"] = vincular_observacions_historial(
+                    extreure_historial_hores(item.get("Comentaris_Operari", "")),
+                    item.get("Notes_Text", "")
+                )
                 item["historial_material"] = extreure_historial_material(item.get("Material_Demanat", ""))
                 item["checklist"] = extreure_checklist_items(item.get("Tasques_Detall", ""))
                 item["historial_mat_no_subministrat"] = extreure_historial_material_no_subministrat(item.get("Material_No_Subministrat", ""))
+                item["notes_visibles"] = str(item.get("Notes_Text", "") or "").replace("INCIDÈNCIA CRONÒMETRE", "OBSERVACIÓ")
 
                 emb_folder = secure_filename(item.get("Embarcació", "GENERAL"))
                 folder_path = os.path.join(current_app.config['UPLOAD_FOLDER'], emb_folder)
@@ -501,7 +528,7 @@ def aturar_crono():
                     if anterior.lower() in ("nan", "none"):
                         anterior = ""
                     capcalera = (
-                        f"[INCIDÈNCIA CRONÒMETRE | {operari_sel} | {data_avui} "
+                        f"[OBSERVACIÓ | {operari_sel} | {data_avui} "
                         f"{hora_i}-{hora_f} | {h_int}h {m_int:02d}m]"
                     )
                     entrada = f"{capcalera}\n{observacions}"
@@ -910,6 +937,44 @@ def eliminar_material_no_subministrat():
         return redirect(url_for("operari.vista_operari", operari=operari_sel))
     else:
         return redirect(request.referrer or url_for("operari.vista_operari"))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
