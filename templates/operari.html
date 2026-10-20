@@ -100,8 +100,14 @@
             <form action="{{ url_for('operari.aturar_crono') }}" method="POST" class="space-y-3">
               <input type="hidden" name="csv_index" value="{{ t.csv_index }}">
               <input type="hidden" name="operari_sel" value="{{ operari_sel }}">
-              <button type="submit" name="accio_aturar" value="finalitzar" class="w-full bg-emerald-700 text-white font-bold rounded-lg p-3">✅ Finalitzar tasca</button>
-              <button type="submit" name="accio_aturar" value="continuar" class="w-full bg-blue-700 text-white font-bold rounded-lg p-3">🔧 Continuar tasca</button>
+              <details class="rounded-xl border border-amber-200 bg-amber-50 p-3">
+                <summary class="cursor-pointer font-bold text-amber-900">📝 Observacions / incidències del període</summary>
+                <label for="observacions-crono-{{ t.csv_index }}" class="block text-sm text-slate-700 mt-3 mb-1">Què ha passat durant aquest període de treball?</label>
+                <textarea id="observacions-crono-{{ t.csv_index }}" name="observacions_crono" rows="4" maxlength="4000" placeholder="Ex.: En revisar la bomba he detectat una fuita..." class="w-full rounded-lg border border-slate-300 p-3 text-sm" ></textarea>
+                <p class="mt-1 text-xs text-slate-600">Les observacions es desaran amb la data, l'operari i les hores del període quan premis un dels dos botons següents.</p>
+              </details>
+              <button type="submit" name="accio_aturar" value="finalitzar" class="w-full bg-emerald-700 text-white font-bold rounded-lg p-3">✅ Desar i finalitzar tasca</button>
+              <button type="submit" name="accio_aturar" value="continuar" class="w-full bg-blue-700 text-white font-bold rounded-lg p-3">🔧 Desar i continuar tasca</button>
             </form>
             <form method="dialog"><button type="submit" class="w-full border border-slate-300 rounded-lg p-2 text-slate-600 font-semibold">Cancel·lar (no aturar)</button></form>
           </div>
@@ -198,7 +204,7 @@
       </details>
 
       <details class="rounded-xl border p-3">
-        <summary class="text-sm font-bold cursor-pointer">📝 Notes de l'operari</summary>
+        <summary class="text-sm font-bold cursor-pointer">📝 Notes de l'operari i incidències</summary>
         <form action="{{ url_for('operari.guardar_notes_operari') }}" method="POST" class="mt-3 space-y-2">
           <input type="hidden" name="csv_index" value="{{ t.csv_index }}"><input type="hidden" name="operari_sel" value="{{ operari_sel }}">
           <textarea name="notes_operari" rows="3" class="border p-2 rounded-lg w-full text-sm">{{ t.Notes_Text or '' }}</textarea>
@@ -349,6 +355,148 @@ async function guardarCheckTasca(casella, tascaIdx, itemIdx) {
 }
 </script>
 {% endblock %}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
