@@ -580,7 +580,24 @@ def afegir_temps_manual():
     nou_com = f"{com_actual} | {nova_nota}" if com_actual else nova_nota
     df.at[idx, "Comentaris_Operari"] = nou_com
     df.at[idx, "Hores_Imputades"] = calcular_total_formatted(nou_com)
-    
+
+    # Vinculem les observacions manuals amb aquest període d'hores.
+    # Mateix format que les observacions del cronòmetre: la icona de nota
+    # apareix automàticament en l'historial del període corresponent.
+    observacions = (request.form.get("observacions_manual") or "").strip()[:4000]
+    if observacions:
+        if "Notes_Text" not in df.columns:
+            df["Notes_Text"] = ""
+        anterior = str(df.at[idx, "Notes_Text"] or "").strip()
+        if anterior.lower() in ("nan", "none"):
+            anterior = ""
+        capcalera = (
+            f"[OBSERVACIÓ | {operari_sel} | {data_formatted} "
+            f"{hora_inici}-{hora_fi} | {h_int}h {m_int:02d}m]"
+        )
+        entrada = f"{capcalera}\n{observacions}"
+        df.at[idx, "Notes_Text"] = f"{anterior}\n\n{entrada}" if anterior else entrada
+
     if request.form.get("marcar_finalitzada"): 
         df.at[idx, "Estat"] = "Finalitzada"
     else:
@@ -937,6 +954,46 @@ def eliminar_material_no_subministrat():
         return redirect(url_for("operari.vista_operari", operari=operari_sel))
     else:
         return redirect(request.referrer or url_for("operari.vista_operari"))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
