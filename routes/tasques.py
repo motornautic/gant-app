@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, redirect, url_for, current_app
+from flask import Blueprint, render_template, request, redirect, url_for, current_app, jsonify
 import pandas as pd
 import os, re
 import json
@@ -9,6 +9,38 @@ from routes.operari import extreure_historial_hores, extreure_historial_material
 from datetime import datetime, timedelta
 
 tasques_bp = Blueprint('tasques', __name__)
+
+
+def obtenir_operaris_crono_actiu(valor):
+    """Retorna noms d'operaris amb cronòmetres iniciats per una tasca."""
+    crono_text = str(valor or "").strip()
+    if not crono_text or crono_text.lower() in ("nan", "none", "{}"):
+        return []
+    if crono_text.startswith("{"):
+        try:
+            dades = json.loads(crono_text)
+            if isinstance(dades, dict):
+                return [str(nom) for nom, inici in dades.items() if str(inici or "").strip()]
+        except (ValueError, TypeError):
+            return []
+        return []
+    # Registres antics amb un únic inici de crono.
+    return ["General"]
+
+
+@tasques_bp.route("/tasques/cronometres-actius", methods=["GET"])
+def cronometres_actius():
+    # Protegit pel control d'administració que ja existeix a app.py.
+    df = carregar_tasques()
+    actius = {}
+    if not df.empty:
+        for idx, row in df.iterrows():
+            noms = obtenir_operaris_crono_actiu(row.get("Inici_Crono", ""))
+            if noms:
+                actius[str(idx)] = noms
+    resposta = jsonify({"ok": True, "actius": actius})
+    resposta.headers["Cache-Control"] = "no-store"
+    return resposta
 
 @tasques_bp.route("/tasques", methods=["GET"])
 def vista_tasques():
@@ -37,20 +69,8 @@ def vista_tasques():
             item["historial_material"] = extreure_historial_material(item.get("Material_Demanat", ""))
             item["historial_mat_no_subministrat"] = extreure_historial_material_no_subministrat(item.get("Material_No_Subministrat", ""))
 
-            # ⏱️ EXTRACTOR DE CRONÒMETRES ACTIUS PER A L'ADMINISTRADOR
-            crono_json = str(row.get("Inici_Crono", "")).strip()
-            operaris_cronos_actius = []
-
-            if crono_json.startswith("{"):
-                try:
-                    crono_dict = json.loads(crono_json)
-                    operaris_cronos_actius = [op for op, inici in crono_dict.items() if inici]
-                except Exception:
-                    pass
-            elif crono_json and crono_json.lower() != "nan":
-                operaris_cronos_actius = ["General"]
-
-            item["operaris_cronos_actius"] = operaris_cronos_actius
+            # Presència de cronòmetre actiu, independent de l'estat "En Curs".
+            item["operaris_cronos_actius"] = obtenir_operaris_crono_actiu(row.get("Inici_Crono", ""))
 
             emb_folder = secure_filename(item.get("Embarcació", "GENERAL"))
             folder_path = os.path.join(current_app.config['UPLOAD_FOLDER'], emb_folder)
@@ -234,4 +254,6 @@ def toggle_pressupost_enviat():
         guardar_tasques(df)
         
     return redirect(url_for("tasques.vista_tasques"))
+
+
 
