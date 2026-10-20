@@ -40,6 +40,11 @@
         <span>👷 Gestió d'Operaris</span>
     </button>
 
+    <div class="inline-flex items-center gap-2 rounded-lg bg-emerald-50 border border-emerald-200 px-3 py-2 text-xs font-bold text-emerald-900" title="Cronòmetres iniciats ara mateix">
+        <span class="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
+        Treballant ara: <span id="comptador-cronos-actius">{{ tasques|selectattr('operaris_cronos_actius')|list|length }}</span>
+    </div>
+
     <!-- 🔍 CERCADOR EN TEMPS REAL -->
     <div class="relative flex-1 max-w-md">
         <span class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-400 text-xs">
@@ -184,6 +189,7 @@
             <!-- TARGETA DE TASCA -->
             <div class="targeta-tasca bg-white p-3 rounded-lg shadow-sm border-l-4 transition relative 
                 {% if es_sense_data %}ring-2 ring-amber-400 border-dashed border-amber-500 bg-amber-50/20{% elif t.Prioritat == 'Urgent' %}border-2 border-red-500 bg-red-50/30 shadow-red-100{% else %}{{ border_color }}{% endif %}"
+                data-csv-index="{{ t.csv_index }}"
                 data-text-cerca="{{ t.Embarcació }} {{ t.Titol_Tasca }} {{ t.Tasques_Detall }} {{ t.Operari }}">
                 
                 <div class="flex justify-between items-start mb-1 gap-1">
@@ -208,6 +214,12 @@
                 {% if t.Tasques_Detall %}
                     <p class="text-[11px] text-slate-600 mb-2 line-clamp-2">{{ t.Tasques_Detall }}</p>
                 {% endif %}
+
+                <!-- Presència de cronòmetres actius (no és el mateix que Estat = En Curs) -->
+                <div class="crono-actiu-widget mb-2 rounded-lg border border-emerald-300 bg-emerald-50 px-2 py-1.5 text-[11px] text-emerald-900 {% if not t.operaris_cronos_actius %}hidden{% endif %}" aria-live="polite">
+                    <span class="font-bold">🟢 TREBALLANT ARA</span>
+                    <span class="crono-actiu-noms block font-semibold mt-0.5">{{ t.operaris_cronos_actius|join(', ') }}</span>
+                </div>
 
                 <!-- BLOC D'INFORMACIÓ I DATES FORMATADES -->
                 <div class="text-[10px] text-slate-500 space-y-1 border-t pt-1.5 mb-2">
@@ -554,6 +566,41 @@
 </div>
 {% endif %}
 
+<script>
+// Actualitza només els indicadors cada 15 s sense recarregar el Kanban.
+async function actualitzarCronosActius() {
+    try {
+        const resposta = await fetch("{{ url_for('tasques.cronometres_actius') }}", {
+            credentials: 'same-origin', cache: 'no-store',
+            headers: {'Accept': 'application/json'}
+        });
+        if (!resposta.ok) return;
+        const dades = await resposta.json();
+        if (!dades.ok) return;
+        const actius = dades.actius || {};
+        let comptador = 0;
+        document.querySelectorAll('.targeta-tasca[data-csv-index]').forEach(targeta => {
+            const idx = targeta.getAttribute('data-csv-index');
+            const noms = Array.isArray(actius[idx]) ? actius[idx] : [];
+            const widget = targeta.querySelector('.crono-actiu-widget');
+            const textNoms = targeta.querySelector('.crono-actiu-noms');
+            if (!widget || !textNoms) return;
+            widget.classList.toggle('hidden', noms.length === 0);
+            textNoms.textContent = noms.join(', ');
+            if (noms.length) comptador++;
+        });
+        const comptadorNode = document.getElementById('comptador-cronos-actius');
+        if (comptadorNode) comptadorNode.textContent = String(comptador);
+    } catch (e) {
+        // Manté l'últim estat si la connexió falla temporalment.
+    }
+}
+setInterval(() => { if (!document.hidden) actualitzarCronosActius(); }, 15000);
+document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) actualitzarCronosActius();
+});
+
+</script>
 <script>
 document.addEventListener("DOMContentLoaded", function() {
     if (document.getElementById("selectOperarisCrear")) {
