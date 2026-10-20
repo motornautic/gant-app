@@ -1,6 +1,18 @@
 {% extends "base.html" %}
 
 {% block content %}
+<style>
+/* Pampalluga suau; respecta l'accessibilitat i no mou les targetes. */
+@keyframes motornautic-pampalluga {
+    0%, 100% { opacity: 1; }
+    50% { opacity: .28; }
+}
+.crono-actiu-pampalluga { display: inline-block; animation: motornautic-pampalluga 1.5s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+    .crono-actiu-pampalluga { animation: none; }
+}
+</style>
+
 <!-- LLIBRERIA TOM-SELECT PER A DESPLEGABLES D'OPERARIS SENSE SCROLL MOLEST -->
 <link href="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/css/tom-select.css" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/js/tom-select.complete.min.js"></script>
@@ -209,17 +221,18 @@
                     </div>
                 </div>
 
+                <!-- Cronòmetres actius, just sota el nom de l'embarcació -->
+                <div class="crono-actiu-widget mb-2 rounded-lg border border-emerald-400 bg-emerald-50 px-2 py-2 text-[11px] text-emerald-900 text-center {% if not t.operaris_cronos_actius %}hidden{% endif %}" aria-live="polite">
+                    <span class="crono-actiu-pampalluga font-extrabold tracking-wide">🟢 TREBALLANT ARA</span>
+                    <span class="crono-actiu-noms block font-bold mt-1">{{ t.operaris_cronos_actius|join(', ') }}</span>
+                </div>
+
                 <h4 class="font-bold text-slate-800 text-xs mb-1">{{ t.Titol_Tasca }}</h4>
                 
                 {% if t.Tasques_Detall %}
                     <p class="text-[11px] text-slate-600 mb-2 line-clamp-2">{{ t.Tasques_Detall }}</p>
                 {% endif %}
 
-                <!-- Presència de cronòmetres actius (no és el mateix que Estat = En Curs) -->
-                <div class="crono-actiu-widget mb-2 rounded-lg border border-emerald-300 bg-emerald-50 px-2 py-1.5 text-[11px] text-emerald-900 {% if not t.operaris_cronos_actius %}hidden{% endif %}" aria-live="polite">
-                    <span class="font-bold">🟢 TREBALLANT ARA</span>
-                    <span class="crono-actiu-noms block font-semibold mt-0.5">{{ t.operaris_cronos_actius|join(', ') }}</span>
-                </div>
 
                 <!-- BLOC D'INFORMACIÓ I DATES FORMATADES -->
                 <div class="text-[10px] text-slate-500 space-y-1 border-t pt-1.5 mb-2">
@@ -692,3 +705,4 @@ function filtrarVistaEstat(estatDemanat) {
 }
 </script>
 {% endblock %}
+
