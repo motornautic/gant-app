@@ -933,108 +933,58 @@ def registrar_material_no_subministrat():
 
 @operari_bp.route("/eliminar_material_no_subministrat", methods=["POST"])
 def eliminar_material_no_subministrat():
-    idx = int(request.form.get("csv_index"))
-    mat_idx = int(request.form.get("mat_idx"))
-    operari_sel = request.form.get("operari_sel", "").strip() or session.get("operari_autenticat", "").strip()
-    
+    # Resposta JSON només per a l'eliminació sense recarregar la pàgina.
+    ajax = request.headers.get("Accept") == "application/json"
+    operari_sel = (session.get("operari_autenticat") or "").strip()
+    es_admin = bool(session.get("admin_autenticat"))
+
+    def error(missatge, codi):
+        if ajax:
+            return jsonify({"ok": False, "error": missatge}), codi
+        abort(codi, description=missatge)
+
+    if not (operari_sel or es_admin):
+        return error("Cal iniciar sessió", 401)
+    try:
+        idx = int(request.form.get("csv_index", ""))
+        mat_idx = int(request.form.get("mat_idx", ""))
+    except (ValueError, TypeError):
+        return error("Índex incorrecte", 400)
+
     df = carregar_tasques()
-    if 0 <= idx < len(df):
-        text_actual = str(df.at[idx, "Material_No_Subministrat"]).strip()
-        registres = extreure_historial_material_no_subministrat(text_actual)
-        
-        if 0 <= mat_idx < len(registres):
-            reg_a_eliminar = registres[mat_idx]["raw_text"]
-            linies = [l.strip() for l in text_actual.split("\n") if l.strip()]
-            linies_filtrades = [l for l in linies if l != reg_a_eliminar]
-            
-            df.at[idx, "Material_No_Subministrat"] = "\n".join(linies_filtrades)
-            guardar_tasques(df)
-            
-    if operari_sel:
-        return redirect(url_for("operari.vista_operari", operari=operari_sel))
-    else:
-        return redirect(request.referrer or url_for("operari.vista_operari"))
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    if not 0 <= idx < len(df):
+        return error("Tasca inexistent", 404)
+
+    tasca = df.iloc[idx]
+    operaris_assignats = [x.strip().casefold() for x in str(tasca.get("Operari", "")).split(",")]
+    if not es_admin and operari_sel.casefold() not in operaris_assignats:
+        return error("Aquesta tasca no està assignada a l'operari", 403)
+
+    text_actual = str(tasca.get("Material_No_Subministrat", "") or "").strip()
+    registres = extreure_historial_material_no_subministrat(text_actual)
+    if not 0 <= mat_idx < len(registres):
+        return error("Material inexistent", 404)
+
+    registre = registres[mat_idx]
+    if not es_admin and registre.get("operari", "").strip().casefold() != operari_sel.casefold():
+        return error("No pots eliminar material d'un altre operari", 403)
+
+    linies = [l.strip() for l in text_actual.split("\n") if l.strip()]
+    # Eliminem només l'entrada indicada, sense modificar les altres.
+    comptador = 0
+    linies_noves = []
+    for linia in linies:
+        if comptador == mat_idx:
+            comptador += 1
+            continue
+        linies_noves.append(linia)
+        comptador += 1
+    df.at[df.index[idx], "Material_No_Subministrat"] = "\n".join(linies_noves)
+    guardar_tasques(df)
+
+    if ajax:
+        return jsonify({"ok": True})
+    return redirect(url_for("operari.vista_operari"))
 
 
 
