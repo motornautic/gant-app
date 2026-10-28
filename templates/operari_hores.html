@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block content %}
+<main class="max-w-xl mx-auto px-3 py-4 sm:py-6">
+  <a href="{{ url_for('operari.vista_operari', _anchor='tasca-' ~ csv_index) }}" class="inline-block text-sm font-bold text-blue-900 mb-5">← Tornar a la tasca</a>
+  <section class="rounded-2xl bg-white border shadow-sm overflow-hidden">
+    <header class="bg-blue-900 text-white p-5">
+      <p class="text-xs font-bold text-blue-200 uppercase tracking-wider">Registre de feina</p>
+      <h1 class="text-xl font-extrabold mt-1">➕ Afegir hores</h1>
+      <p class="mt-2 text-sm text-blue-100">⛵ {{ tasca['Embarcació'] }} · {{ tasca['Titol_Tasca'] }}</p>
+    </header>
+    <form action="{{ url_for('operari.afegir_temps_manual') }}" method="POST" class="p-5 space-y-5">
+      <input type="hidden" name="csv_index" value="{{ csv_index }}">
+      <label class="block text-sm font-semibold text-slate-800">Data
+        <input type="date" name="data_imputacio" value="{{ now_date }}" required class="block w-full mt-2 border rounded-xl p-3 text-base">
+      </label>
+      <div class="grid grid-cols-2 gap-3">
+        <label class="block text-sm font-semibold text-slate-800">Hora inici
+          <input type="time" name="hora_inici" required class="block w-full mt-2 border rounded-xl p-3 text-base">
+        </label>
+        <label class="block text-sm font-semibold text-slate-800">Hora fi
+          <input type="time" name="hora_fi" required class="block w-full mt-2 border rounded-xl p-3 text-base">
+        </label>
+      </div>
+      <label class="block text-sm font-semibold text-slate-800">📝 Observacions del període <span class="font-normal text-slate-500">(opcional)</span>
+        <textarea name="observacions_manual" rows="6" maxlength="4000" placeholder="Feina realitzada, incidències o material pendent..." class="block w-full mt-2 border rounded-xl p-3 text-base resize-y"></textarea>
+      </label>
+      <label class="flex items-center gap-3 rounded-xl bg-slate-50 border p-3 text-sm font-semibold text-slate-800">
+        <input type="checkbox" name="marcar_finalitzada" value="1" class="w-5 h-5 accent-green-700"> Marcar tasca finalitzada
+      </label>
+      <button type="submit" class="w-full rounded-xl bg-blue-800 text-white p-4 text-base font-extrabold">💾 Desar hores i observacions</button>
+      <a href="{{ url_for('operari.vista_operari', _anchor='tasca-' ~ csv_index) }}" class="block text-center rounded-xl border p-3 text-sm font-semibold text-slate-600">Cancel·lar</a>
+    </form>
+  </section>
+</main>
+{% endblock %}
