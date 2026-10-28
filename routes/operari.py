@@ -547,12 +547,49 @@ def aturar_crono():
             
     return redirect(url_for("operari.vista_operari", operari=operari_sel, confirm_idx=idx))
 
+@operari_bp.route("/operari/tasca/<int:csv_index>/hores", methods=["GET"])
+def pagina_hores_manuals(csv_index):
+    """Pantalla de registre d'hores d'una tasca assignada."""
+    operari_actual = (session.get("operari_autenticat") or "").strip()
+    es_admin = bool(session.get("admin_autenticat"))
+    if not (operari_actual or es_admin):
+        return redirect(url_for("operari.vista_operari"))
+
+    df = carregar_tasques()
+    if not 0 <= csv_index < len(df):
+        abort(404)
+    tasca = df.iloc[csv_index].to_dict()
+    assignats = [n.strip().casefold() for n in str(tasca.get("Operari", "")).split(",") if n.strip()]
+    if not es_admin and operari_actual.casefold() not in assignats:
+        abort(403)
+
+    return render_template(
+        "operari_hores.html",
+        tasca=tasca,
+        csv_index=csv_index,
+        now_date=datetime.now().strftime("%Y-%m-%d"),
+    )
+
 @operari_bp.route("/afegir_temps_manual", methods=["POST"])
 def afegir_temps_manual():
-    idx = int(request.form.get("csv_index"))
+    try:
+        idx = int(request.form.get("csv_index", ""))
+    except (ValueError, TypeError):
+        abort(400)
+    df = carregar_tasques()
+    if not 0 <= idx < len(df):
+        abort(404)
+    operari_sel = (session.get("operari_autenticat") or "").strip()
+    es_admin = bool(session.get("admin_autenticat"))
+    if not (operari_sel or es_admin):
+        abort(403)
+    assignats = [n.strip().casefold() for n in str(df.iloc[idx].get("Operari", "")).split(",") if n.strip()]
+    if not es_admin and operari_sel.casefold() not in assignats:
+        abort(403)
     hora_inici, hora_fi = request.form.get("hora_inici"), request.form.get("hora_fi")
-    operari_sel = request.form.get("operari_sel", "").strip() or session.get("operari_autenticat", "").strip()
-    
+    if not hora_inici or not hora_fi:
+        abort(400)
+
     data_imp_raw = request.form.get("data_imputacio", "").strip()
     if data_imp_raw:
         try:
@@ -604,7 +641,7 @@ def afegir_temps_manual():
         df.at[idx, "Estat"] = "En Curs"
         
     guardar_tasques(df)
-    return redirect(url_for("operari.vista_operari", operari=operari_sel))
+    return redirect(url_for("operari.vista_operari", _anchor=f"tasca-{idx}"))
 
 @operari_bp.route("/registrar_sollicitud_material", methods=["POST"])
 def registrar_sollicitud_material():
@@ -985,66 +1022,6 @@ def eliminar_material_no_subministrat():
     if ajax:
         return jsonify({"ok": True})
     return redirect(url_for("operari.vista_operari"))
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
