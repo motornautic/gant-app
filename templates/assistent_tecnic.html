@@ -8,60 +8,68 @@
       <h1 class="text-xl font-extrabold mt-2">🔧 Assistent Tècnic</h1>
     </header>
     <div class="p-4 space-y-4">
-      <p class="text-sm text-slate-700">Primera fase: les dades del motor es recuperen de la fitxa de l'embarcació. Encara no hi ha consulta automàtica als catàlegs.</p>
-      {% if not fitxa_trobada %}
-      <p class="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">No hem trobat la fitxa de l'embarcació. Pots introduir les dades manualment.</p>
-      {% endif %}
-      <div>
-        <label for="selector-motor" class="block text-sm font-bold mb-1">Motor de l'embarcació</label>
-        <select id="selector-motor" class="w-full rounded-lg border p-3 text-base">
-          {% for motor in motors %}<option value="{{ loop.index0 }}">{{ motor.nom }}{% if motor.serie %} · {{ motor.serie }}{% endif %}</option>{% endfor %}
-        </select>
-      </div>
-      <div class="space-y-3">
+      <p class="text-sm text-slate-700">Cerca de prova dins d'un <strong>índex limitat del catàleg oficial Volvo Penta</strong>. No és una connexió en directe al cercador per número de sèrie.</p>
+      {% if not fitxa_trobada %}<p class="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">No s'ha trobat la fitxa de l'embarcació. Introdueix les dades manualment.</p>{% endif %}
+      <form method="POST" id="formulari-cerca" class="space-y-3">
+        <div>
+          <label for="selector-motor" class="block text-sm font-bold mb-1">Motor de l'embarcació</label>
+          <select name="motor_idx" id="selector-motor" class="w-full rounded-lg border p-3 text-base">
+            {% for motor in motors %}<option value="{{ loop.index0 }}" {% if dades and dades.motor_idx == loop.index0|string %}selected{% endif %}>{{ motor.nom }}{% if motor.serie %} · {{ motor.serie }}{% endif %}</option>{% endfor %}
+          </select>
+        </div>
         <label class="block text-sm font-bold">Fabricant
-          <input id="marca-motor" class="block mt-1 w-full border rounded-lg p-3 font-normal" autocomplete="off" placeholder="Ex.: Volvo Penta" />
+          <input name="marca" id="marca-motor" required maxlength="300" value="{{ dades.marca if dades else '' }}" class="block mt-1 w-full border rounded-lg p-3 font-normal" placeholder="Volvo Penta">
         </label>
-        <label class="block text-sm font-bold">Model del motor
-          <input id="model-motor" class="block mt-1 w-full border rounded-lg p-3 font-normal" autocomplete="off" placeholder="Ex.: D4-260I-E" />
+        <label class="block text-sm font-bold">Model
+          <input name="model" id="model-motor" required maxlength="300" value="{{ dades.model if dades else '' }}" class="block mt-1 w-full border rounded-lg p-3 font-normal" placeholder="D4-260I-E">
         </label>
         <label class="block text-sm font-bold">Número de sèrie
-          <input id="serie-motor" class="block mt-1 w-full border rounded-lg p-3 font-normal" autocomplete="off" placeholder="Ex.: A159544" />
+          <input name="serie" id="serie-motor" required maxlength="300" value="{{ dades.serie if dades else '' }}" class="block mt-1 w-full border rounded-lg p-3 font-normal" placeholder="A159544">
         </label>
-        <label class="block text-sm font-bold">Peça o consulta
-          <textarea id="pregunta-motor" rows="3" class="block mt-1 w-full border rounded-lg p-3 font-normal" placeholder="Ex.: Filtres d'oli del motor"></textarea>
+        <label class="block text-sm font-bold">Peça que necessites
+          <textarea name="consulta" required id="pregunta-motor" rows="2" maxlength="500" class="block mt-1 w-full border rounded-lg p-3 font-normal" placeholder="Filtres d'oli del motor">{{ dades.consulta if dades else '' }}</textarea>
         </label>
+        <button type="submit" class="w-full rounded-lg bg-blue-800 text-white p-3 font-bold">🔎 Buscar en documentació oficial indexada</button>
+      </form>
+      {% if resultat %}
+      <section class="rounded-xl border p-3 space-y-3" aria-live="polite">
+        <h2 class="font-bold text-blue-900">Resultat de la consulta</h2>
+        {% if resultat.error %}<p class="text-red-700">{{ resultat.error }}</p>{% endif %}
+        {% if resultat.missatge %}<p class="text-amber-900 bg-amber-50 rounded-lg p-3 text-sm">{{ resultat.missatge }}</p>{% endif %}
+        {% if resultat.peces %}
+          {% for p in resultat.peces %}
+          <div class="rounded-lg bg-slate-50 border p-3 space-y-1">
+            <p class="text-xl font-extrabold text-blue-900">{{ p.referencia }}</p>
+            <p class="text-sm">{{ p.descripcio }}</p>
+            <p class="text-xs text-slate-600">Família: {{ p.familia }}</p>
+          </div>
+          {% endfor %}
+          <p class="rounded-lg bg-amber-50 p-3 text-sm text-amber-950"><strong>⚠️ Verificació pendent:</strong> {{ resultat.avis }}</p>
+        {% endif %}
+        <a href="{{ font_oficial.url }}" target="_blank" rel="noopener noreferrer" class="block text-blue-800 underline font-semibold text-sm">📄 Font: {{ font_oficial.titol }}, pàgina {{ font_oficial.pagina }} ↗</a>
+      </section>
+      {% endif %}
+      <div class="rounded-lg border p-3 space-y-2">
+        <a href="https://www.volvopenta.com/shop/0/workshop/parts-list" target="_blank" rel="noopener noreferrer" class="block text-center rounded-lg bg-slate-800 text-white p-3 font-bold">↗ Obrir cercador oficial per número de sèrie</a>
+        <p class="text-xs text-slate-600">La verificació definitiva continua fent-se al despiece oficial per número de sèrie. No s'han modificat dades de l'embarcació ni de la tasca.</p>
       </div>
-      <div id="avis-formulari" class="text-sm text-red-700 hidden" role="alert"></div>
-      <button id="copiar-consulta" type="button" class="w-full rounded-lg bg-blue-800 text-white p-3 font-bold">📋 Preparar i copiar la consulta</button>
-      <p class="text-xs text-slate-500">Aquesta primera versió copia el text de consulta. No envia dades a cap IA, ni als portals dels fabricants, i no modifica la fitxa de l'embarcació.</p>
-      <pre id="consulta-preparada" class="hidden whitespace-pre-wrap break-words rounded-lg border bg-slate-50 p-3 text-sm"></pre>
     </div>
   </div>
 </div>
 <script>
 (() => {
   const motors = {{ motors|tojson }};
-  const fields = {marca: document.getElementById('marca-motor'), model: document.getElementById('model-motor'), serie: document.getElementById('serie-motor')};
   const selector = document.getElementById('selector-motor');
-  const aviso = document.getElementById('avis-formulari');
-  function emplenar() {
+  const dadesPreexistents = {{ (dades is not none)|tojson }};
+  function omplir() {
     const m = motors[Number(selector.value)] || motors[0];
-    fields.marca.value = m.marca || '';
-    fields.model.value = m.model || '';
-    fields.serie.value = m.serie || '';
+    for (const [camp, valor] of [['marca-motor',m.marca], ['model-motor',m.model], ['serie-motor',m.serie]]) {
+      document.getElementById(camp).value = valor || '';
+    }
   }
-  selector.addEventListener('change', emplenar);
-  emplenar();
-  document.getElementById('copiar-consulta').addEventListener('click', async () => {
-    aviso.classList.add('hidden');
-    const marca=fields.marca.value.trim(),model=fields.model.value.trim(),serie=fields.serie.value.trim(),pregunta=document.getElementById('pregunta-motor').value.trim();
-    if (!marca || !model || !serie || !pregunta) { aviso.textContent='Omple fabricant, model, número de sèrie i peça abans de continuar.'; aviso.classList.remove('hidden'); return; }
-    const text = ['CONSULTA TÈCNICA MOTORNAUTIC','Embarcació: {{ embarcacio|replace("\\", "\\\\")|replace("\n", " ")|e }}','Fabricant: '+marca,'Model: '+model,'Número de sèrie: '+serie,'Consulta: '+pregunta,'Cal contrastar qualsevol referència al catàleg autoritzat pel número de sèrie.'].join('\n');
-    const resultat=document.getElementById('consulta-preparada');resultat.textContent=text;resultat.classList.remove('hidden');
-    try { await navigator.clipboard.writeText(text); document.getElementById('copiar-consulta').textContent='✓ Consulta copiada'; }
-    catch (_) { document.getElementById('copiar-consulta').textContent='Consulta preparada (selecciona el text de sota per copiar-la)'; }
-  });
+  selector.addEventListener('change', omplir);
+  if (!dadesPreexistents) omplir();
 })();
 </script>
 {% endblock %}
+
