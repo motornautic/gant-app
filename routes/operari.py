@@ -547,6 +547,36 @@ def aturar_crono():
             
     return redirect(url_for("operari.vista_operari", operari=operari_sel, confirm_idx=idx))
 
+@operari_bp.route("/operari/tasca/<int:csv_index>/<seccio>", methods=["GET"])
+def pagina_detall_operari(csv_index, seccio):
+    if seccio not in ("historial", "material", "pendent", "notes"):
+        abort(404)
+    operari_sel = (session.get("operari_autenticat") or "").strip()
+    es_admin = bool(session.get("admin_autenticat"))
+    if not (operari_sel or es_admin):
+        return redirect(url_for("operari.vista_operari"))
+    df = carregar_tasques()
+    if not 0 <= csv_index < len(df):
+        abort(404)
+    t = df.iloc[csv_index].to_dict()
+    assignats = [n.strip().casefold() for n in str(t.get("Operari", "")).split(",") if n.strip()]
+    if not es_admin and operari_sel.casefold() not in assignats:
+        abort(403)
+    t["csv_index"] = csv_index
+    t["historial_hores"] = vincular_observacions_historial(extreure_historial_hores(t.get("Comentaris_Operari", "")), t.get("Notes_Text", ""))
+    t["historial_material"] = extreure_historial_material(t.get("Material_Demanat", ""))
+    t["historial_mat_no_subministrat"] = extreure_historial_material_no_subministrat(t.get("Material_No_Subministrat", ""))
+    t["notes_visibles"] = str(t.get("Notes_Text", "") or "").replace("INCIDÈNCIA CRONÒMETRE", "OBSERVACIÓ")
+    articles = []
+    if seccio == "pendent":
+        df_articles = carregar_articles()
+        if not df_articles.empty:
+            for _, art in df_articles.iterrows():
+                ref = str(art.get("Ref", "")).strip()
+                if ref and ref.lower() != "nan":
+                    articles.append({"ref": ref, "etiqueta": " - ".join([ref, str(art.get("Descripcio", "")).strip()])})
+    return render_template("operari_detall.html", t=t, seccio=seccio, operari_sel=operari_sel, es_admin=es_admin, articles=articles)
+
 @operari_bp.route("/operari/tasca/<int:csv_index>/hores", methods=["GET"])
 def pagina_hores_manuals(csv_index):
     """Pantalla de registre d'hores d'una tasca assignada."""
@@ -1022,6 +1052,7 @@ def eliminar_material_no_subministrat():
     if ajax:
         return jsonify({"ok": True})
     return redirect(url_for("operari.vista_operari"))
+
 
 
 
