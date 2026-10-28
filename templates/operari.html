@@ -127,105 +127,20 @@
         <a href="{{ url_for('operari.pagina_hores_manuals', csv_index=t.csv_index) }}" class="flex justify-between items-center w-full rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm font-bold text-blue-900 hover:bg-blue-100">
           <span>➕ Afegir hores i observacions</span><span aria-hidden="true">›</span>
         </a>
-        {% if t.historial_hores %}
-        <details><summary class="text-sm font-semibold cursor-pointer">Historial d'hores ({{ t.historial_hores|length }})</summary>
-          <div class="mt-2 space-y-2">
-          {% for h in t.historial_hores %}
-          <div class="flex items-center justify-between gap-2 text-xs bg-slate-50 rounded p-2">
-            <span>{{ h.operari }} · {{ h.data }} · {{ h.inici }}–{{ h.fi }} · <strong>{{ h.total }}</strong></span>
-            {% if h.observacio %}
-            <button type="button" class="inline-flex items-center gap-1 rounded-lg border border-amber-300 bg-amber-50 px-2 py-1 font-bold text-amber-900" title="Llegir observació d'aquest període" onclick="document.getElementById('nota-hora-{{ t.csv_index }}-{{ h.reg_index }}').showModal()">📝 <span class="sr-only">Veure observació</span></button>
-            <dialog id="nota-hora-{{ t.csv_index }}-{{ h.reg_index }}" class="w-[calc(100%-2rem)] max-w-md rounded-2xl border p-5 shadow-xl backdrop:bg-slate-900/60">
-              <h4 class="mb-2 font-bold text-lg">📝 Observació del període</h4>
-              <p class="text-xs text-slate-600 mb-3">{{ h.operari }} · {{ h.data }} · {{ h.inici }}–{{ h.fi }}</p>
-              <p class="text-sm whitespace-pre-wrap break-words">{{ h.observacio }}</p>
-              <form method="dialog" class="mt-4"><button type="submit" class="w-full rounded-lg bg-blue-800 p-2 text-white font-bold">Tancar</button></form>
-            </dialog>
-            {% endif %}
-            {% if es_admin or h.operari|lower == operari_sel|lower %}
-            <form action="{{ url_for('operari.eliminar_registre_hora') }}" method="POST" onsubmit="return confirm('Vols eliminar aquest registre?');">
-              <input type="hidden" name="csv_index" value="{{ t.csv_index }}"><input type="hidden" name="operari_sel" value="{{ operari_sel }}"><input type="hidden" name="reg_index" value="{{ h.reg_index }}">
-              <button type="submit" class="text-red-700 font-bold">Eliminar</button>
-            </form>{% endif %}
-          </div>
-          {% endfor %}
-          </div>
-        </details>
-        {% endif %}
-          </div>
-
-      <details class="rounded-xl border p-3">
-        <summary class="text-sm font-bold cursor-pointer">📦 Demanar material / recanvis</summary>
-        <form action="{{ url_for('operari.registrar_sollicitud_material') }}" method="POST" class="mt-3 space-y-2">
-          <input type="hidden" name="csv_index" value="{{ t.csv_index }}"><input type="hidden" name="operari_sel" value="{{ operari_sel }}">
-          <textarea name="material_text" required rows="3" placeholder="Quin material necessites?" class="w-full border rounded-lg p-2 text-sm"></textarea>
-          <select name="via" class="w-full border rounded-lg p-2 text-sm"><option value="WhatsApp">WhatsApp</option><option value="Email">Correu electrònic</option></select>
-          <button class="bg-amber-600 text-white rounded-lg p-2 w-full font-bold text-sm" type="submit">Enviar sol·licitud</button>
-        </form>
-        {% if t.historial_material %}
-        <h4 class="text-xs font-bold mt-4 mb-2">Sol·licituds anteriors</h4>
-        {% for m in t.historial_material %}
-        <div class="border-t pt-2 pb-2 text-xs space-y-2">
-          <p>{{ m.data_hora }} · {{ m.via }} · <strong>{{ m.estat }}</strong></p><p class="whitespace-pre-wrap">{{ m.detall }}</p>
-          <form action="{{ url_for('operari.canviar_estat_material') }}" method="POST" class="flex gap-2">
-            <input type="hidden" name="csv_index" value="{{ t.csv_index }}"><input type="hidden" name="operari_sel" value="{{ operari_sel }}"><input type="hidden" name="mat_index" value="{{ m.mat_index }}">
-            <select name="nou_estat" class="border rounded p-1 flex-1"><option value="Pendent">Pendent</option><option value="Demanat">Demanat</option><option value="Rebut">Rebut</option>{% if es_admin %}<option value="Eliminar">Eliminar</option>{% endif %}</select>
-            <button class="bg-slate-800 text-white px-3 rounded" type="submit">Actualitzar</button>
-          </form>
-        </div>
+        <div class="grid gap-2">
+        {% for seccio, icona, titol in [
+          ('historial', '⏱️', "Historial d'hores"),
+          ('material', '📦', 'Demanar material / recanvis'),
+          ('pendent', '⚠️', 'Material no subministrat'),
+          ('notes', '📝', "Notes de l'operari i incidències")
+        ] %}
+          <a href="{{ url_for('operari.pagina_detall_operari', csv_index=t.csv_index, seccio=seccio) }}"
+             class="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-800 hover:bg-blue-50">
+            <span>{{ icona }} {{ titol }}</span><span aria-hidden="true">›</span>
+          </a>
         {% endfor %}
-        {% endif %}
-      </details>
-
-      <details class="rounded-xl border p-3">
-        <summary class="text-sm font-bold cursor-pointer">⚠️ Material no subministrat</summary>
-        <form action="{{ url_for('operari.registrar_material_no_subministrat') }}" method="POST" class="mt-3 space-y-2 text-sm">
-          <input type="hidden" name="csv_index" value="{{ t.csv_index }}"><input type="hidden" name="operari_sel" value="{{ operari_sel }}">
-          <label class="block font-semibold" for="referencia-{{ t.csv_index }}">Referència del material</label>
-          <input id="referencia-{{ t.csv_index }}" name="referencia" list="llista-articles-{{ t.csv_index }}" placeholder="Escriu o escaneja la referència" required class="border rounded-lg p-2 w-full" autocomplete="off">
-          <datalist id="llista-articles-{{ t.csv_index }}">{% for art in articles %}<option value="{{ art.ref }}">{{ art.etiqueta }}</option>{% endfor %}</datalist>
-          <button type="button" onclick="obrirEscanerMaterial('{{ t.csv_index }}')" class="bg-blue-700 text-white px-3 py-2 rounded-lg font-bold w-full">📷 Escanejar codi de barres</button>
-          <div id="escaner-wrap-{{ t.csv_index }}" class="hidden rounded-lg border border-blue-200 bg-blue-50 p-2 space-y-2">
-            <div id="escaner-{{ t.csv_index }}" class="w-full overflow-hidden rounded-lg"></div>
-            <p id="escaner-avis-{{ t.csv_index }}" class="text-xs text-blue-900">Enfoca el codi de barres amb la càmera.</p>
-            <button type="button" onclick="tancarEscanerMaterial()" class="bg-slate-700 text-white px-3 py-2 rounded-lg font-bold w-full">✕ Tancar càmera</button>
+        </div>
           </div>
-          <label>Quantitat<input type="number" name="quantitat" value="1" min="1" class="border rounded-lg p-2 w-full"></label>
-          <button type="submit" class="bg-red-700 text-white px-3 py-2 rounded-lg font-bold w-full">Registrar material pendent</button>
-        </form>
-        {% for m in t.historial_mat_no_subministrat %}
-        <div class="material-pendent-item mt-2 border-t pt-2 flex items-start justify-between gap-2 text-xs">
-          <span>{{ m.data_hora }} · {{ m.referencia }}</span>
-          {% if es_admin or m.operari|lower == operari_sel|lower %}
-          <form action="{{ url_for('operari.eliminar_material_no_subministrat') }}" method="POST" onsubmit="return eliminarMaterialPendent(this, event);">
-            <input type="hidden" name="csv_index" value="{{ t.csv_index }}"><input type="hidden" name="operari_sel" value="{{ operari_sel }}"><input type="hidden" name="mat_idx" value="{{ m.mat_idx }}">
-            <button class="text-red-700 font-bold" type="submit">Eliminar</button>
-          </form>{% endif %}
-        </div>
-        {% endfor %}
-      </details>
-
-      <details class="rounded-xl border p-3">
-        <summary class="text-sm font-bold cursor-pointer">📝 Notes de l'operari i incidències</summary>
-        <div class="mt-3 space-y-3">
-          <!-- Lectura neta: conservem les dades completes a l'editor per no perdre
-               l'enllaç entre les observacions i cada període de treball. -->
-          <div id="notes-lectura-{{ t.csv_index }}" class="whitespace-pre-wrap break-words text-sm text-slate-800 rounded-lg bg-slate-50 border p-3"></div>
-          <button type="button" onclick="editarNotesOperari('{{ t.csv_index }}')" id="notes-editar-btn-{{ t.csv_index }}" class="rounded-lg border border-blue-200 px-3 py-2 text-sm font-bold text-blue-800">✏️ Editar notes</button>
-          <form id="notes-form-{{ t.csv_index }}" action="{{ url_for('operari.guardar_notes_operari') }}" method="POST" class="hidden space-y-2">
-            <input type="hidden" name="csv_index" value="{{ t.csv_index }}"><input type="hidden" name="operari_sel" value="{{ operari_sel }}">
-            <textarea id="notes-text-{{ t.csv_index }}" name="notes_operari" rows="3" class="border p-2 rounded-lg w-full text-sm overflow-hidden resize-none" oninput="adaptarAlturaNotes(this)">{{ t.notes_visibles or '' }}</textarea>
-            <p class="text-xs text-slate-500">En editar es mostren també les dades internes del període. No les eliminis si vols conservar la vinculació amb l'historial d'hores.</p>
-            <div class="flex flex-wrap gap-2">
-              <button type="submit" class="bg-blue-700 text-white px-4 py-2 rounded-lg font-bold text-sm">Guardar notes</button>
-              <button type="button" onclick="cancelarEditarNotesOperari('{{ t.csv_index }}')" class="bg-slate-200 text-slate-700 px-4 py-2 rounded-lg font-bold text-sm">Cancel·lar</button>
-            </div>
-          </form>
-        </div>
-      </details>
-
-
-
       <div class="flex gap-2">
         {% if t.Estat == 'Finalitzada' %}
         <form action="{{ url_for('operari.reobrir_tasca') }}" method="POST" class="flex-1">
@@ -436,6 +351,568 @@ async function eliminarMaterialPendent(form, event) {
 }
 </script>
 {% endblock %}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
