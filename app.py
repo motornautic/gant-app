@@ -7,6 +7,7 @@ from routes.gantt import gantt_bp
 from routes.articles import articles_bp
 from datetime import datetime, timedelta
 from db import carregar_admins, guardar_admins
+from routes.assistent_tecnic import assistent_tecnic_bp
 import os
 import pandas as pd
 import time
@@ -43,6 +44,7 @@ app.register_blueprint(embarcacions_bp)
 app.register_blueprint(tasques_bp)    
 app.register_blueprint(gantt_bp)
 app.register_blueprint(articles_bp)
+app.register_blueprint(assistent_tecnic_bp)
 
 # 🛡️ CONTROL D'ACCÉS
 # Accés al login i al panell de l'operari; la comprovació de credencials
@@ -80,6 +82,7 @@ RUTES_OPERARI = {
     "operari.canviar_contrasenya",
     "operari.registrar_material_no_subministrat",
     "operari.eliminar_material_no_subministrat",
+    "assistent_tecnic.vista_assistent_tasca",
 }
 
 @app.before_request
