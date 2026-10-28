@@ -124,6 +124,7 @@
         <summary class="cursor-pointer select-none text-center font-extrabold text-blue-900 py-3 px-4 hover:bg-blue-100 transition">🔽 Veure més · Material, hores i notes</summary>
         <div class="p-3 sm:p-4 space-y-3 bg-white">
           <div class="rounded-xl border p-3 space-y-3">
+        <a href="{{ url_for('assistent_tecnic.vista_assistent_tasca', csv_index=t.csv_index) }}" class="flex items-center justify-between rounded-lg border border-blue-300 bg-blue-50 px-4 py-3 text-sm font-bold text-blue-900"><span>🔧 Assistent Tècnic</span><span aria-hidden="true">›</span></a>
         <a href="{{ url_for('operari.pagina_hores_manuals', csv_index=t.csv_index) }}" class="flex justify-between items-center w-full rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm font-bold text-blue-900 hover:bg-blue-100">
           <span>➕ Afegir hores i observacions</span><span aria-hidden="true">›</span>
         </a>
