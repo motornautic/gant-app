@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="max-w-xl mx-auto px-3 py-4 space-y-4">
+  <a href="{{ url_for('operari.vista_operari', _anchor='tasca-' ~ csv_index) }}" class="font-bold text-blue-900">← Tornar a la tasca</a>
+  <div class="rounded-2xl overflow-hidden border bg-white shadow-sm">
+    <header class="p-5 bg-blue-900 text-white">
+      <p class="text-sm text-blue-100">⛵ {{ embarcacio }} · {{ titol_tasca }}</p>
+      <h1 class="text-xl font-extrabold mt-2">🔧 Assistent Tècnic</h1>
+    </header>
+    <div class="p-4 space-y-4">
+      <p class="text-sm text-slate-700">Primera fase: les dades del motor es recuperen de la fitxa de l'embarcació. Encara no hi ha consulta automàtica als catàlegs.</p>
+      {% if not fitxa_trobada %}
+      <p class="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">No hem trobat la fitxa de l'embarcació. Pots introduir les dades manualment.</p>
+      {% endif %}
+      <div>
+        <label for="selector-motor" class="block text-sm font-bold mb-1">Motor de l'embarcació</label>
+        <select id="selector-motor" class="w-full rounded-lg border p-3 text-base">
+          {% for motor in motors %}<option value="{{ loop.index0 }}">{{ motor.nom }}{% if motor.serie %} · {{ motor.serie }}{% endif %}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="space-y-3">
+        <label class="block text-sm font-bold">Fabricant
+          <input id="marca-motor" class="block mt-1 w-full border rounded-lg p-3 font-normal" autocomplete="off" placeholder="Ex.: Volvo Penta" />
+        </label>
+        <label class="block text-sm font-bold">Model del motor
+          <input id="model-motor" class="block mt-1 w-full border rounded-lg p-3 font-normal" autocomplete="off" placeholder="Ex.: D4-260I-E" />
+        </label>
+        <label class="block text-sm font-bold">Número de sèrie
+          <input id="serie-motor" class="block mt-1 w-full border rounded-lg p-3 font-normal" autocomplete="off" placeholder="Ex.: A159544" />
+        </label>
+        <label class="block text-sm font-bold">Peça o consulta
+          <textarea id="pregunta-motor" rows="3" class="block mt-1 w-full border rounded-lg p-3 font-normal" placeholder="Ex.: Filtres d'oli del motor"></textarea>
+        </label>
+      </div>
+      <div id="avis-formulari" class="text-sm text-red-700 hidden" role="alert"></div>
+      <button id="copiar-consulta" type="button" class="w-full rounded-lg bg-blue-800 text-white p-3 font-bold">📋 Preparar i copiar la consulta</button>
+      <p class="text-xs text-slate-500">Aquesta primera versió copia el text de consulta. No envia dades a cap IA, ni als portals dels fabricants, i no modifica la fitxa de l'embarcació.</p>
+      <pre id="consulta-preparada" class="hidden whitespace-pre-wrap break-words rounded-lg border bg-slate-50 p-3 text-sm"></pre>
+    </div>
+  </div>
+</div>
+<script>
+(() => {
+  const motors = {{ motors|tojson }};
+  const fields = {marca: document.getElementById('marca-motor'), model: document.getElementById('model-motor'), serie: document.getElementById('serie-motor')};
+  const selector = document.getElementById('selector-motor');
+  const aviso = document.getElementById('avis-formulari');
+  function emplenar() {
+    const m = motors[Number(selector.value)] || motors[0];
+    fields.marca.value = m.marca || '';
+    fields.model.value = m.model || '';
+    fields.serie.value = m.serie || '';
+  }
+  selector.addEventListener('change', emplenar);
+  emplenar();
+  document.getElementById('copiar-consulta').addEventListener('click', async () => {
+    aviso.classList.add('hidden');
+    const marca=fields.marca.value.trim(),model=fields.model.value.trim(),serie=fields.serie.value.trim(),pregunta=document.getElementById('pregunta-motor').value.trim();
+    if (!marca || !model || !serie || !pregunta) { aviso.textContent='Omple fabricant, model, número de sèrie i peça abans de continuar.'; aviso.classList.remove('hidden'); return; }
+    const text = ['CONSULTA TÈCNICA MOTORNAUTIC','Embarcació: {{ embarcacio|replace("\\", "\\\\")|replace("\n", " ")|e }}','Fabricant: '+marca,'Model: '+model,'Número de sèrie: '+serie,'Consulta: '+pregunta,'Cal contrastar qualsevol referència al catàleg autoritzat pel número de sèrie.'].join('\n');
+    const resultat=document.getElementById('consulta-preparada');resultat.textContent=text;resultat.classList.remove('hidden');
+    try { await navigator.clipboard.writeText(text); document.getElementById('copiar-consulta').textContent='✓ Consulta copiada'; }
+    catch (_) { document.getElementById('copiar-consulta').textContent='Consulta preparada (selecciona el text de sota per copiar-la)'; }
+  });
+})();
+</script>
+{% endblock %}
