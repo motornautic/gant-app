@@ -1,5 +1,6 @@
 from flask import Blueprint, render_template, request, redirect, url_for, current_app, jsonify, session, flash, make_response, abort
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 import pandas as pd
 import re, os, json, random, string
 import urllib.parse
@@ -800,14 +801,36 @@ def eliminar_registre_hora():
 
 @operari_bp.route("/guardar_notes_operari", methods=["POST"])
 def guardar_notes_operari():
-    idx = int(request.form.get("csv_index"))
-    operari_sel = request.form.get("operari_sel", "").strip() or session.get("operari_autenticat", "").strip()
-    notes_text = request.form.get("notes_operari", "").strip()
+    # Cada anotació té autor i hora propis, sense sobreescriure notes anteriors.
+    operari_sel = (session.get("operari_autenticat") or "").strip()
+    es_admin = bool(session.get("admin_autenticat"))
+    if not (operari_sel or es_admin):
+        abort(403)
+    try:
+        idx = int(request.form.get("csv_index", ""))
+    except (TypeError, ValueError):
+        abort(400)
     df = carregar_tasques()
-    if "Notes_Text" not in df.columns: df["Notes_Text"] = ""
-    df.at[idx, "Notes_Text"] = notes_text
-    guardar_tasques(df)
-    return redirect(url_for("operari.vista_operari", operari=operari_sel))
+    if not 0 <= idx < len(df):
+        abort(404)
+    assignats = [x.strip().casefold() for x in str(df.iloc[idx].get("Operari", "")).split(",") if x.strip()]
+    if not es_admin and operari_sel.casefold() not in assignats:
+        abort(403)
+    notes_text = (request.form.get("notes_operari") or "").strip()[:4000]
+    if notes_text:
+        if "Notes_Text" not in df.columns:
+            df["Notes_Text"] = ""
+        anterior = str(df.iloc[idx].get("Notes_Text", "") or "").strip()
+        if anterior.casefold() in ("nan", "none"):
+            anterior = ""
+        autor = operari_sel or str(session.get("admin_nom") or "Administrador")
+        moment = datetime.now(ZoneInfo("Europe/Madrid")).strftime("%d/%m/%y %H:%M")
+        # Aquest format no interfereix amb els marcadors [OBSERVACIÓ | ...]
+        # que relacionen notes del cronòmetre amb hores imputades.
+        nota_nova = f"[NOTA | {autor} | {moment}]\n{notes_text}"
+        df.at[df.index[idx], "Notes_Text"] = (anterior + "\n\n" + nota_nova) if anterior else nota_nova
+        guardar_tasques(df)
+    return redirect(url_for("operari.pagina_detall_operari", csv_index=idx, seccio="notes"))
 
 @operari_bp.route("/reobrir_tasca", methods=["POST"])
 def reobrir_tasca():
@@ -1052,8 +1075,6 @@ def eliminar_material_no_subministrat():
     if ajax:
         return jsonify({"ok": True})
     return redirect(url_for("operari.vista_operari"))
-
-
 
 
 
