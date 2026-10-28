@@ -97,15 +97,13 @@
           <!-- Lectura neta: conservem les dades completes a l'editor per no perdre
                l'enllaç entre les observacions i cada període de treball. -->
           <div id="notes-lectura-{{ t.csv_index }}" class="whitespace-pre-wrap break-words text-sm text-slate-800 rounded-lg bg-slate-50 border p-3"></div>
-          <button type="button" onclick="editarNotesOperari('{{ t.csv_index }}')" id="notes-editar-btn-{{ t.csv_index }}" class="rounded-lg border border-blue-200 px-3 py-2 text-sm font-bold text-blue-800">✏️ Editar notes</button>
-          <form id="notes-form-{{ t.csv_index }}" action="{{ url_for('operari.guardar_notes_operari') }}" method="POST" class="hidden space-y-2">
-            <input type="hidden" name="csv_index" value="{{ t.csv_index }}"><input type="hidden" name="operari_sel" value="{{ operari_sel }}">
-            <textarea id="notes-text-{{ t.csv_index }}" name="notes_operari" rows="3" class="border p-2 rounded-lg w-full text-sm overflow-hidden resize-none" oninput="adaptarAlturaNotes(this)">{{ t.notes_visibles or '' }}</textarea>
-            <p class="text-xs text-slate-500">En editar es mostren també les dades internes del període. No les eliminis si vols conservar la vinculació amb l'historial d'hores.</p>
-            <div class="flex flex-wrap gap-2">
-              <button type="submit" class="bg-blue-700 text-white px-4 py-2 rounded-lg font-bold text-sm">Guardar notes</button>
-              <button type="button" onclick="cancelarEditarNotesOperari('{{ t.csv_index }}')" class="bg-slate-200 text-slate-700 px-4 py-2 rounded-lg font-bold text-sm">Cancel·lar</button>
-            </div>
+          <textarea id="notes-text-{{ t.csv_index }}" class="hidden" aria-hidden="true" tabindex="-1" readonly>{{ t.notes_visibles or '' }}</textarea>
+          <form action="{{ url_for('operari.guardar_notes_operari') }}" method="POST" class="space-y-2">
+            <input type="hidden" name="csv_index" value="{{ t.csv_index }}">
+            <label for="nova-nota-{{ t.csv_index }}" class="block text-sm font-semibold text-slate-800">➕ Nova nota</label>
+            <textarea id="nova-nota-{{ t.csv_index }}" name="notes_operari" rows="4" maxlength="4000" required placeholder="Escriu una nova observació..." class="border p-3 rounded-lg w-full text-base resize-y"></textarea>
+            <p class="text-xs text-slate-500">En desar, s'hi afegiran automàticament el nom de l'operari, la data i l'hora de Madrid. Les notes anteriors es conserven.</p>
+            <button type="submit" class="w-full bg-blue-700 text-white px-4 py-3 rounded-lg font-bold text-sm">💾 Afegir nota</button>
           </form>
         </div>
       </section>
@@ -242,6 +240,8 @@ function textNotesCompactes(text) {
   return (text || '')
     .replace(/\[(?:OBSERVACIÓ|INCIDÈNCIA CRONÒMETRE)\s*\|\s*([^|\]\n]+)\s*\|\s*([^|\]\n]+?)\s*\|\s*\d+h\s*\d+m\s*\]/gi,
              (_tot, operari, periode) => '[' + operari.trim() + ' · ' + periode.trim() + ']')
+    .replace(/\[NOTA\s*\|\s*([^|\]\n]+)\s*\|\s*([^\]\n]+)\]/gi,
+             (_tot, operari, moment) => '[' + operari.trim() + ' · ' + moment.trim() + ']')
     .trim();
 }
 function adaptarAlturaNotes(camp) {
