@@ -20,6 +20,54 @@ operari_bp = Blueprint('operari', __name__)
 # FUNCIONS AUXILIARS DE PROCESSAMENT
 # ---------------------------------------------------------------------
 
+# Edició segura de notes directes: mantenim intactes les observacions d'hores.
+_PATRON_NOTA_DIRECTA = re.compile(
+    r"\[NOTA\s*\|\s*([^|\]\n]+)\s*\|\s*(\d{2}/\d{2}/\d{2}\s+\d{2}:\d{2})"
+    r"(?:\s*\|\s*Editada\s+([^\]\n]+))?\]", re.I
+)
+_PATRON_INICI_BLOC = re.compile(
+    r"(?m)^\[(?:NOTA|OBSERVACIÓ|INCIDÈNCIA CRONÒMETRE)\s*\|"
+)
+
+
+def _blocs_notes(text):
+    """Retorna trams exactes, sense alterar cap informació original."""
+    text = str(text or '')
+    if text.casefold() in ('nan', 'none'):
+        text = ''
+    inicis = [m.start() for m in _PATRON_INICI_BLOC.finditer(text)]
+    limits = [0] + inicis + [len(text)]
+    limits = sorted(set(limits))
+    resultat = []
+    for i in range(len(limits) - 1):
+        inici, fi = limits[i], limits[i+1]
+        fragment = text[inici:fi]
+        match = _PATRON_NOTA_DIRECTA.match(fragment)
+        # Només capçaleres exactes, no fragments amb encapçalament corrupte.
+        if match and fragment[match.end():].startswith('\n'):
+            contingut = fragment[match.end():].strip()
+            resultat.append({'start': inici, 'end': fi, 'autor': match.group(1).strip(),
+                              'creada': match.group(2).strip(), 'editada': (match.group(3) or '').strip(),
+                              'text': contingut, 'editable': True})
+        elif fragment:
+            resultat.append({'start': inici, 'end': fi, 'editable': False, 'raw': fragment})
+    return resultat
+
+
+def _notes_per_pantalla(text, autor):
+    resultat = []
+    for pos, bloc in enumerate(_blocs_notes(text)):
+        if bloc.get('editable'):
+            resultat.append({**bloc, 'id': pos,
+                              'es_meva': bool(autor) and bloc['autor'].casefold() == autor.casefold(),
+                              'fingerprint': hashlib.sha256(str(text)[bloc['start']:bloc['end']].encode()).hexdigest()})
+        else:
+            visible = bloc.get('raw', '').strip()
+            if visible:
+                resultat.append({'editable': False, 'text': visible, 'id': pos})
+    return resultat
+
+
 def extreure_historial_hores(text_comentaris):
     if not text_comentaris or pd.isna(text_comentaris): 
         return []
@@ -568,6 +616,7 @@ def pagina_detall_operari(csv_index, seccio):
     t["historial_material"] = extreure_historial_material(t.get("Material_Demanat", ""))
     t["historial_mat_no_subministrat"] = extreure_historial_material_no_subministrat(t.get("Material_No_Subministrat", ""))
     t["notes_visibles"] = str(t.get("Notes_Text", "") or "").replace("INCIDÈNCIA CRONÒMETRE", "OBSERVACIÓ")
+    t["notes_individuals"] = _notes_per_pantalla(t.get("Notes_Text", ""), operari_sel)
     articles = []
     if seccio == "pendent":
         df_articles = carregar_articles()
@@ -832,6 +881,50 @@ def guardar_notes_operari():
         guardar_tasques(df)
     return redirect(url_for("operari.pagina_detall_operari", csv_index=idx, seccio="notes"))
 
+@operari_bp.route("/modificar_nota_operari", methods=["POST"])
+def modificar_nota_operari():
+    """Només el creador autenticat pot modificar o eliminar una nota directa."""
+    autor = (session.get('operari_autenticat') or '').strip()
+    if not autor:
+        abort(403)
+    try:
+        idx = int(request.form.get('csv_index', ''))
+        nota_idx = int(request.form.get('nota_idx', ''))
+    except (ValueError, TypeError):
+        abort(400)
+    accio = request.form.get('accio')
+    if accio not in ('editar', 'eliminar'):
+        abort(400)
+    df = carregar_tasques()
+    if not 0 <= idx < len(df):
+        abort(404)
+    assignats = [x.strip().casefold() for x in str(df.iloc[idx].get('Operari', '')).split(',') if x.strip()]
+    if not session.get('admin_autenticat') and autor.casefold() not in assignats:
+        abort(403)
+    original = str(df.iloc[idx].get('Notes_Text', '') or '')
+    blocs = _blocs_notes(original)
+    if not 0 <= nota_idx < len(blocs):
+        abort(404)
+    bloc = blocs[nota_idx]
+    if not bloc.get('editable') or bloc['autor'].casefold() != autor.casefold():
+        abort(403)
+    # Evita editar una nota diferent si un altre operari ha fet canvis mentrestant.
+    if request.form.get('nota_fingerprint') != hashlib.sha256(original[bloc['start']:bloc['end']].encode()).hexdigest():
+        abort(409, description='La nota ha canviat. Torna a carregar la pàgina.')
+    if accio == 'editar':
+        nou_text = (request.form.get('contingut') or '').strip()
+        if not nou_text or len(nou_text) > 4000:
+            abort(400)
+        modificada = datetime.now(ZoneInfo('Europe/Madrid')).strftime('%d/%m/%y %H:%M')
+        nou_bloc = f"[NOTA | {bloc['autor']} | {bloc['creada']} | Editada {modificada}]\n{nou_text}"
+    else:
+        nou_bloc = ''
+    nou_valor = (original[:bloc['start']] + (nou_bloc + ('\n\n' if nou_bloc and original[bloc['end']:] else '')) + original[bloc['end']:]).strip()
+    df.at[df.index[idx], 'Notes_Text'] = nou_valor
+    guardar_tasques(df)
+    return redirect(url_for('operari.pagina_detall_operari', csv_index=idx, seccio='notes'))
+
+
 @operari_bp.route("/reobrir_tasca", methods=["POST"])
 def reobrir_tasca():
     idx = int(request.form.get("csv_index"))
@@ -1075,20 +1168,3 @@ def eliminar_material_no_subministrat():
     if ajax:
         return jsonify({"ok": True})
     return redirect(url_for("operari.vista_operari"))
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
