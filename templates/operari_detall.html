@@ -91,25 +91,42 @@
 
 
       {% elif seccio == 'notes' %}
-      <section class="rounded-xl border p-3">
+      <section class="rounded-xl border p-3 space-y-4">
         <h2 class="text-sm font-bold">📝 Notes de l'operari i incidències</h2>
-        <div class="mt-3 space-y-3">
-          <!-- Lectura neta: conservem les dades completes a l'editor per no perdre
-               l'enllaç entre les observacions i cada període de treball. -->
-          <div id="notes-lectura-{{ t.csv_index }}" class="whitespace-pre-wrap break-words text-sm text-slate-800 rounded-lg bg-slate-50 border p-3"></div>
-          <textarea id="notes-text-{{ t.csv_index }}" class="hidden" aria-hidden="true" tabindex="-1" readonly>{{ t.notes_visibles or '' }}</textarea>
-          <form action="{{ url_for('operari.guardar_notes_operari') }}" method="POST" class="space-y-2">
-            <input type="hidden" name="csv_index" value="{{ t.csv_index }}">
-            <label for="nova-nota-{{ t.csv_index }}" class="block text-sm font-semibold text-slate-800">➕ Nova nota</label>
-            <textarea id="nova-nota-{{ t.csv_index }}" name="notes_operari" rows="4" maxlength="4000" required placeholder="Escriu una nova observació..." class="border p-3 rounded-lg w-full text-base resize-y"></textarea>
-            <p class="text-xs text-slate-500">En desar, s'hi afegiran automàticament el nom de l'operari, la data i l'hora de Madrid. Les notes anteriors es conserven.</p>
-            <button type="submit" class="w-full bg-blue-700 text-white px-4 py-3 rounded-lg font-bold text-sm">💾 Afegir nota</button>
-          </form>
-        </div>
+        {% for nota in t.notes_individuals %}
+          <article class="rounded-xl border bg-slate-50 p-3 space-y-2">
+            {% if nota.editable %}
+              <p class="text-xs font-bold text-slate-600">{{ nota.autor }} · {{ nota.creada }}{% if nota.editada %} · Editada {{ nota.editada }}{% endif %}</p>
+              <p class="whitespace-pre-wrap break-words text-sm text-slate-800">{{ nota.text }}</p>
+              {% if nota.es_meva %}
+                <details class="rounded-lg border bg-white p-2">
+                  <summary class="cursor-pointer text-sm font-bold text-blue-800">✏️ Editar la meva nota</summary>
+                  <form method="POST" action="{{ url_for('operari.modificar_nota_operari') }}" class="mt-3 space-y-2">
+                    <input type="hidden" name="csv_index" value="{{ t.csv_index }}">
+                    <input type="hidden" name="nota_idx" value="{{ nota.id }}">
+                    <input type="hidden" name="nota_fingerprint" value="{{ nota.fingerprint }}">
+                    <textarea name="contingut" rows="5" maxlength="4000" required class="w-full border rounded-lg p-3 text-base">{{ nota.text }}</textarea>
+                    <div class="grid grid-cols-2 gap-2">
+                      <button type="submit" name="accio" value="editar" class="rounded-lg bg-blue-700 p-3 font-bold text-white">💾 Guardar</button>
+                      <button type="submit" name="accio" value="eliminar" formnovalidate onclick="return confirm('Vols eliminar aquesta anotació teva?');" class="rounded-lg border border-red-300 bg-red-50 p-3 font-bold text-red-700">🗑️ Eliminar</button>
+                    </div>
+                  </form>
+                </details>
+              {% endif %}
+            {% else %}
+              <p class="text-sm whitespace-pre-wrap break-words text-slate-700">{{ nota.text | replace('INCIDÈNCIA CRONÒMETRE', 'OBSERVACIÓ') }}</p>
+            {% endif %}
+          </article>
+        {% else %}
+          <p class="text-sm text-slate-500">Encara no hi ha notes.</p>
+        {% endfor %}
+        <form action="{{ url_for('operari.guardar_notes_operari') }}" method="POST" class="space-y-2 border-t pt-4">
+          <input type="hidden" name="csv_index" value="{{ t.csv_index }}">
+          <label for="nova-nota-{{ t.csv_index }}" class="block text-sm font-semibold">➕ Nova nota</label>
+          <textarea id="nova-nota-{{ t.csv_index }}" name="notes_operari" rows="4" maxlength="4000" required placeholder="Escriu una nova observació..." class="border p-3 rounded-lg w-full text-base"></textarea>
+          <button type="submit" class="w-full bg-blue-700 text-white p-3 rounded-lg font-bold">💾 Afegir nota</button>
+        </form>
       </section>
-
-
-
 
       {% endif %}
     </div>
@@ -306,3 +323,4 @@ async function eliminarMaterialPendent(form, event) {
 </script>
 
 {% endblock %}
+
