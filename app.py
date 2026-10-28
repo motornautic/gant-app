@@ -63,6 +63,7 @@ RUTES_OPERARI = {
     "operari.aturar_crono",
     "operari.afegir_temps_manual",
     "operari.pagina_hores_manuals",
+    "operari.pagina_detall_operari",
     "operari.registrar_sollicitud_material",
     "operari.canviar_estat_material",
     "operari.pujar_foto",
