@@ -9,6 +9,11 @@ from datetime import datetime, timedelta
 from db import carregar_admins, guardar_admins
 import os
 import pandas as pd
+import time
+
+os.environ["TZ"] = "Europe/Madrid"
+if hasattr(time, "tzset"):
+    time.tzset()
 
 app = Flask(__name__)
 app.secret_key = "clau_secret_motornautic"
