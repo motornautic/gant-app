@@ -1,0 +1,308 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="max-w-xl mx-auto px-3 py-4 sm:py-6">
+  <a href="{{ url_for('operari.vista_operari', _anchor='tasca-' ~ t.csv_index) }}" class="block text-sm font-bold text-blue-900 mb-4">← Tornar a la tasca</a>
+  <div class="rounded-2xl overflow-hidden border bg-white shadow-sm">
+    <div class="bg-blue-900 p-5 text-white">
+      <p class="text-sm text-blue-100">⛵ {{ t.Embarcació }} · {{ t.Titol_Tasca }}</p>
+      <h1 class="mt-2 text-xl font-extrabold">{{ {'historial': "⏱️ Historial d'hores", 'material':'📦 Demanar material', 'pendent':'⚠️ Material no subministrat', 'notes':"📝 Notes de l'operari"}[seccio] }}</h1>
+    </div>
+    <div class="p-4 space-y-3">
+      {% if seccio == 'historial' %}
+        {% if t.historial_hores %}
+        <section><h2 class="text-sm font-semibold">Historial d'hores ({{ t.historial_hores|length }})</h2>
+          <div class="mt-2 space-y-2">
+          {% for h in t.historial_hores %}
+          <div class="flex items-center justify-between gap-2 text-xs bg-slate-50 rounded p-2">
+            <span>{{ h.operari }} · {{ h.data }} · {{ h.inici }}–{{ h.fi }} · <strong>{{ h.total }}</strong></span>
+            {% if h.observacio %}
+            <button type="button" class="inline-flex items-center gap-1 rounded-lg border border-amber-300 bg-amber-50 px-2 py-1 font-bold text-amber-900" title="Llegir observació d'aquest període" onclick="document.getElementById('nota-hora-{{ t.csv_index }}-{{ h.reg_index }}').showModal()">📝 <span class="sr-only">Veure observació</span></button>
+            <dialog id="nota-hora-{{ t.csv_index }}-{{ h.reg_index }}" class="w-[calc(100%-2rem)] max-w-md rounded-2xl border p-5 shadow-xl backdrop:bg-slate-900/60">
+              <h4 class="mb-2 font-bold text-lg">📝 Observació del període</h4>
+              <p class="text-xs text-slate-600 mb-3">{{ h.operari }} · {{ h.data }} · {{ h.inici }}–{{ h.fi }}</p>
+              <p class="text-sm whitespace-pre-wrap break-words">{{ h.observacio }}</p>
+              <form method="dialog" class="mt-4"><button type="submit" class="w-full rounded-lg bg-blue-800 p-2 text-white font-bold">Tancar</button></form>
+            </dialog>
+            {% endif %}
+            {% if es_admin or h.operari|lower == operari_sel|lower %}
+            <form action="{{ url_for('operari.eliminar_registre_hora') }}" method="POST" onsubmit="return confirm('Vols eliminar aquest registre?');">
+              <input type="hidden" name="csv_index" value="{{ t.csv_index }}"><input type="hidden" name="operari_sel" value="{{ operari_sel }}"><input type="hidden" name="reg_index" value="{{ h.reg_index }}">
+              <button type="submit" class="text-red-700 font-bold">Eliminar</button>
+            </form>{% endif %}
+          </div>
+          {% endfor %}
+          </div>
+        </section>
+        {% endif %}
+          
+      {% elif seccio == 'material' %}
+      <section class="rounded-xl border p-3">
+        <h2 class="text-sm font-bold">📦 Demanar material / recanvis</h2>
+        <form action="{{ url_for('operari.registrar_sollicitud_material') }}" method="POST" class="mt-3 space-y-2">
+          <input type="hidden" name="csv_index" value="{{ t.csv_index }}"><input type="hidden" name="operari_sel" value="{{ operari_sel }}">
+          <textarea name="material_text" required rows="3" placeholder="Quin material necessites?" class="w-full border rounded-lg p-2 text-sm"></textarea>
+          <select name="via" class="w-full border rounded-lg p-2 text-sm"><option value="WhatsApp">WhatsApp</option><option value="Email">Correu electrònic</option></select>
+          <button class="bg-amber-600 text-white rounded-lg p-2 w-full font-bold text-sm" type="submit">Enviar sol·licitud</button>
+        </form>
+        {% if t.historial_material %}
+        <h4 class="text-xs font-bold mt-4 mb-2">Sol·licituds anteriors</h4>
+        {% for m in t.historial_material %}
+        <div class="border-t pt-2 pb-2 text-xs space-y-2">
+          <p>{{ m.data_hora }} · {{ m.via }} · <strong>{{ m.estat }}</strong></p><p class="whitespace-pre-wrap">{{ m.detall }}</p>
+          <form action="{{ url_for('operari.canviar_estat_material') }}" method="POST" class="flex gap-2">
+            <input type="hidden" name="csv_index" value="{{ t.csv_index }}"><input type="hidden" name="operari_sel" value="{{ operari_sel }}"><input type="hidden" name="mat_index" value="{{ m.mat_index }}">
+            <select name="nou_estat" class="border rounded p-1 flex-1"><option value="Pendent">Pendent</option><option value="Demanat">Demanat</option><option value="Rebut">Rebut</option>{% if es_admin %}<option value="Eliminar">Eliminar</option>{% endif %}</select>
+            <button class="bg-slate-800 text-white px-3 rounded" type="submit">Actualitzar</button>
+          </form>
+        </div>
+        {% endfor %}
+        {% endif %}
+      </section>
+
+
+      {% elif seccio == 'pendent' %}
+      <section class="rounded-xl border p-3">
+        <h2 class="text-sm font-bold">⚠️ Material no subministrat</h2>
+        <form action="{{ url_for('operari.registrar_material_no_subministrat') }}" method="POST" class="mt-3 space-y-2 text-sm">
+          <input type="hidden" name="csv_index" value="{{ t.csv_index }}"><input type="hidden" name="operari_sel" value="{{ operari_sel }}">
+          <label class="block font-semibold" for="referencia-{{ t.csv_index }}">Referència del material</label>
+          <input id="referencia-{{ t.csv_index }}" name="referencia" list="llista-articles-{{ t.csv_index }}" placeholder="Escriu o escaneja la referència" required class="border rounded-lg p-2 w-full" autocomplete="off">
+          <datalist id="llista-articles-{{ t.csv_index }}">{% for art in articles %}<option value="{{ art.ref }}">{{ art.etiqueta }}</option>{% endfor %}</datalist>
+          <button type="button" onclick="obrirEscanerMaterial('{{ t.csv_index }}')" class="bg-blue-700 text-white px-3 py-2 rounded-lg font-bold w-full">📷 Escanejar codi de barres</button>
+          <div id="escaner-wrap-{{ t.csv_index }}" class="hidden rounded-lg border border-blue-200 bg-blue-50 p-2 space-y-2">
+            <div id="escaner-{{ t.csv_index }}" class="w-full overflow-hidden rounded-lg"></div>
+            <p id="escaner-avis-{{ t.csv_index }}" class="text-xs text-blue-900">Enfoca el codi de barres amb la càmera.</p>
+            <button type="button" onclick="tancarEscanerMaterial()" class="bg-slate-700 text-white px-3 py-2 rounded-lg font-bold w-full">✕ Tancar càmera</button>
+          </div>
+          <label>Quantitat<input type="number" name="quantitat" value="1" min="1" class="border rounded-lg p-2 w-full"></label>
+          <button type="submit" class="bg-red-700 text-white px-3 py-2 rounded-lg font-bold w-full">Registrar material pendent</button>
+        </form>
+        {% for m in t.historial_mat_no_subministrat %}
+        <div class="material-pendent-item mt-2 border-t pt-2 flex items-start justify-between gap-2 text-xs">
+          <span>{{ m.data_hora }} · {{ m.referencia }}</span>
+          {% if es_admin or m.operari|lower == operari_sel|lower %}
+          <form action="{{ url_for('operari.eliminar_material_no_subministrat') }}" method="POST" onsubmit="return eliminarMaterialPendent(this, event);">
+            <input type="hidden" name="csv_index" value="{{ t.csv_index }}"><input type="hidden" name="operari_sel" value="{{ operari_sel }}"><input type="hidden" name="mat_idx" value="{{ m.mat_idx }}">
+            <button class="text-red-700 font-bold" type="submit">Eliminar</button>
+          </form>{% endif %}
+        </div>
+        {% endfor %}
+      </section>
+
+
+      {% elif seccio == 'notes' %}
+      <section class="rounded-xl border p-3">
+        <h2 class="text-sm font-bold">📝 Notes de l'operari i incidències</h2>
+        <div class="mt-3 space-y-3">
+          <!-- Lectura neta: conservem les dades completes a l'editor per no perdre
+               l'enllaç entre les observacions i cada període de treball. -->
+          <div id="notes-lectura-{{ t.csv_index }}" class="whitespace-pre-wrap break-words text-sm text-slate-800 rounded-lg bg-slate-50 border p-3"></div>
+          <button type="button" onclick="editarNotesOperari('{{ t.csv_index }}')" id="notes-editar-btn-{{ t.csv_index }}" class="rounded-lg border border-blue-200 px-3 py-2 text-sm font-bold text-blue-800">✏️ Editar notes</button>
+          <form id="notes-form-{{ t.csv_index }}" action="{{ url_for('operari.guardar_notes_operari') }}" method="POST" class="hidden space-y-2">
+            <input type="hidden" name="csv_index" value="{{ t.csv_index }}"><input type="hidden" name="operari_sel" value="{{ operari_sel }}">
+            <textarea id="notes-text-{{ t.csv_index }}" name="notes_operari" rows="3" class="border p-2 rounded-lg w-full text-sm overflow-hidden resize-none" oninput="adaptarAlturaNotes(this)">{{ t.notes_visibles or '' }}</textarea>
+            <p class="text-xs text-slate-500">En editar es mostren també les dades internes del període. No les eliminis si vols conservar la vinculació amb l'historial d'hores.</p>
+            <div class="flex flex-wrap gap-2">
+              <button type="submit" class="bg-blue-700 text-white px-4 py-2 rounded-lg font-bold text-sm">Guardar notes</button>
+              <button type="button" onclick="cancelarEditarNotesOperari('{{ t.csv_index }}')" class="bg-slate-200 text-slate-700 px-4 py-2 rounded-lg font-bold text-sm">Cancel·lar</button>
+            </div>
+          </form>
+        </div>
+      </section>
+
+
+
+
+      {% endif %}
+    </div>
+  </div>
+  <a href="{{ url_for('operari.vista_operari', _anchor='tasca-' ~ t.csv_index) }}" class="block text-center rounded-xl border bg-white mt-4 p-3 font-bold text-blue-900">← Tornar a la tasca</a>
+</div>
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js" defer></script>
+<script>
+  let escanerMaterialActiu = null;
+  let escanerMaterialIdx = null;
+  let escanerMaterialFinalitzant = false;
+
+  async function tancarEscanerMaterial() {
+    const instancia = escanerMaterialActiu;
+    const idx = escanerMaterialIdx;
+    escanerMaterialActiu = null;
+    escanerMaterialIdx = null;
+    escanerMaterialFinalitzant = false;
+    if (instancia) {
+      try { await instancia.stop(); } catch (_) {}
+      try { instancia.clear(); } catch (_) {}
+    }
+    if (idx !== null) {
+      const contenidor = document.getElementById('escaner-wrap-' + idx);
+      if (contenidor) contenidor.classList.add('hidden');
+    }
+  }
+
+  async function obrirEscanerMaterial(idx) {
+    await tancarEscanerMaterial();
+    const contenidor = document.getElementById('escaner-wrap-' + idx);
+    const avis = document.getElementById('escaner-avis-' + idx);
+    if (!contenidor || !avis) return;
+    contenidor.classList.remove('hidden');
+    avis.textContent = 'Obrint càmera...';
+
+    if (!window.isSecureContext || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      avis.textContent = 'Cal obrir MotorNautic amb HTTPS per utilitzar la càmera. Pots escriure la referència manualment.';
+      return;
+    }
+    if (typeof Html5Qrcode === 'undefined') {
+      avis.textContent = 'No s’ha pogut carregar el lector de codis. Comprova la connexió o escriu la referència manualment.';
+      return;
+    }
+
+    const formats = [
+      Html5QrcodeSupportedFormats.EAN_13, Html5QrcodeSupportedFormats.EAN_8,
+      Html5QrcodeSupportedFormats.CODE_128, Html5QrcodeSupportedFormats.CODE_39,
+      Html5QrcodeSupportedFormats.ITF, Html5QrcodeSupportedFormats.UPC_A,
+      Html5QrcodeSupportedFormats.UPC_E, Html5QrcodeSupportedFormats.DATA_MATRIX,
+      Html5QrcodeSupportedFormats.QR_CODE
+    ];
+    let lector;
+    try {
+      lector = new Html5Qrcode('escaner-' + idx, { formatsToSupport: formats, verbose: false });
+      escanerMaterialActiu = lector;
+      escanerMaterialIdx = idx;
+      await lector.start(
+        { facingMode: 'environment' },
+        { fps: 10, aspectRatio: 1.777778 },
+        async (codi) => {
+          if (escanerMaterialFinalitzant) return;
+          escanerMaterialFinalitzant = true;
+          const camp = document.getElementById('referencia-' + idx);
+          if (camp) {
+            camp.value = codi.trim();
+            camp.dispatchEvent(new Event('input', { bubbles: true }));
+          }
+          avis.textContent = 'Codi llegit: ' + codi + '. Revisa la referència i indica la quantitat.';
+          await tancarEscanerMaterial();
+          if (camp) camp.focus();
+        },
+        () => {}
+      );
+      avis.textContent = 'Enfoca el codi de barres. El camp de referència s’omplirà automàticament.';
+    } catch (error) {
+      if (escanerMaterialActiu === lector) {
+        await tancarEscanerMaterial();
+      }
+      contenidor.classList.remove('hidden');
+      avis.textContent = 'No es pot obrir la càmera. Comprova els permisos del navegador o introdueix el codi manualment.';
+    }
+  }
+
+  window.addEventListener('pagehide', () => { tancarEscanerMaterial(); });
+</script>
+<script>
+async function guardarCheckTasca(casella, tascaIdx, itemIdx) {
+  const etiqueta = casella.closest('label');
+  const titol = etiqueta ? etiqueta.querySelector('span') : null;
+  const estat = document.getElementById('check-status-' + tascaIdx);
+  const nouValor = casella.checked;
+  casella.disabled = true;
+  if (estat) estat.textContent = 'Desant...';
+  const dades = new URLSearchParams({
+    accio: 'toggle_checklist',
+    csv_index: String(tascaIdx),
+    item_index: String(itemIdx),
+    fet: nouValor ? '1' : '0'
+  });
+  try {
+    const resposta = await fetch("{{ url_for('operari.vista_operari') }}", {
+      method: 'POST',
+      body: dades,
+      credentials: 'same-origin',
+      headers: {'Accept': 'application/json'}
+    });
+    const resultat = await resposta.json();
+    if (!resposta.ok || !resultat.ok) throw new Error(resultat.error || 'Error en desar');
+    if (titol) {
+      titol.classList.toggle('line-through', nouValor);
+      titol.classList.toggle('text-green-700', nouValor);
+      titol.classList.toggle('text-slate-800', !nouValor);
+    }
+    if (estat) estat.textContent = '✓ Desat';
+  } catch (err) {
+    casella.checked = !nouValor;
+    if (estat) estat.textContent = '⚠️ No s’ha desat: ' + err.message;
+  } finally {
+    casella.disabled = false;
+  }
+}
+</script>
+<script>
+// Visualització compacta: ocultem només els prefixos i la durada total.
+// El contingut original es conserva intacte per a l'historial d'observacions.
+function textNotesCompactes(text) {
+  return (text || '')
+    .replace(/\[(?:OBSERVACIÓ|INCIDÈNCIA CRONÒMETRE)\s*\|\s*([^|\]\n]+)\s*\|\s*([^|\]\n]+?)\s*\|\s*\d+h\s*\d+m\s*\]/gi,
+             (_tot, operari, periode) => '[' + operari.trim() + ' · ' + periode.trim() + ']')
+    .trim();
+}
+function adaptarAlturaNotes(camp) {
+  camp.style.height = 'auto';
+  camp.style.height = Math.max(90, camp.scrollHeight + 2) + 'px';
+}
+function editarNotesOperari(idx) {
+  const form = document.getElementById('notes-form-' + idx);
+  const btn = document.getElementById('notes-editar-btn-' + idx);
+  form.classList.remove('hidden');
+  btn.classList.add('hidden');
+  adaptarAlturaNotes(document.getElementById('notes-text-' + idx));
+}
+function cancelarEditarNotesOperari(idx) {
+  document.getElementById('notes-form-' + idx).classList.add('hidden');
+  document.getElementById('notes-editar-btn-' + idx).classList.remove('hidden');
+}
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('[id^="notes-text-"]').forEach(camp => {
+    const idx = camp.id.slice('notes-text-'.length);
+    const lect = document.getElementById('notes-lectura-' + idx);
+    if (lect) lect.textContent = textNotesCompactes(camp.value) || 'Sense notes.';
+    adaptarAlturaNotes(camp);
+  });
+});
+</script>
+
+<script>
+async function eliminarMaterialPendent(form, event) {
+  event.preventDefault();
+  if (!confirm('Eliminar aquest material pendent?')) return false;
+  const boto = form.querySelector('button[type="submit"]');
+  if (boto) boto.disabled = true;
+  try {
+    const resposta = await fetch(form.action, {
+      method: 'POST',
+      body: new FormData(form),
+      credentials: 'same-origin',
+      headers: { 'Accept': 'application/json' }
+    });
+    const resultat = await resposta.json();
+    if (!resposta.ok || !resultat.ok) {
+      throw new Error(resultat.error || 'No s’ha pogut eliminar');
+    }
+    const fila = form.closest('.material-pendent-item');
+    const llista = fila && fila.parentElement;
+    if (fila) fila.remove();
+    // Reajustar els índexs perquè es puguin eliminar més línies sense refrescar.
+    if (llista) {
+      llista.querySelectorAll('.material-pendent-item').forEach((item, pos) => {
+        const input = item.querySelector('input[name="mat_idx"]');
+        if (input) input.value = String(pos);
+      });
+    }
+  } catch (err) {
+    alert('Error en eliminar el material: ' + err.message);
+  } finally {
+    if (boto) boto.disabled = false;
+  }
+  return false;
+}
+</script>
+
+{% endblock %}
