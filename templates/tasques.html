@@ -489,6 +489,7 @@
             } catch (_) {}
         });
 
+        const tascaIndex = {{ tasca_view.csv_index | tojson if tasca_view else 'null' }};
         registres.forEach((registre, index) => {
             const contingut = registre.replace(/^\[|\]$/g, '');
             const parts = contingut.split(/\s+\|\s+/);
@@ -519,6 +520,45 @@
             bloc.appendChild(node('div', 'font-bold text-sm text-slate-900 break-words', '📦 ' + referencia));
             fila.appendChild(bloc);
             if (unitats) fila.appendChild(node('span', 'shrink-0 rounded-full bg-red-100 border border-red-200 px-2 py-1 text-xs font-extrabold text-red-900', unitats + ' ut.'));
+            // Eliminació del registre exacte (no de la fotografia de l'embarcació).
+            if (tascaIndex !== null) {
+                const botoEliminar = node('button',
+                    'shrink-0 rounded-lg border border-red-300 bg-red-50 px-2 py-1 text-xs font-bold text-red-700 hover:bg-red-100',
+                    '🗑️ Eliminar');
+                botoEliminar.type = 'button';
+                botoEliminar.setAttribute('aria-label', 'Eliminar aquest material pendent');
+                botoEliminar.addEventListener('click', async () => {
+                    if (!confirm('Aquest material ja està imputat? Vols eliminar-lo de la llista de material pendent?')) return;
+                    botoEliminar.disabled = true;
+                    botoEliminar.textContent = 'Eliminant...';
+                    try {
+                        // Recalcula la posició: en eliminar una entrada els índexs següents canvien.
+                        const indexActual = [...desti.children].indexOf(fitxa);
+                        if (indexActual < 0) throw new Error('No s’ha trobat el registre');
+                        const dades = new FormData();
+                        dades.append('csv_index', String(tascaIndex));
+                        dades.append('mat_idx', String(indexActual));
+                        const resposta = await fetch({{ url_for('operari.eliminar_material_no_subministrat') | tojson }}, {
+                            method: 'POST',
+                            body: dades,
+                            credentials: 'same-origin',
+                            headers: {'Accept': 'application/json'}
+                        });
+                        const resultat = await resposta.json();
+                        if (!resposta.ok || !resultat.ok) throw new Error(resultat.error || 'No s’ha pogut eliminar');
+                        fitxa.remove();
+                        if (!desti.children.length) {
+                            desti.appendChild(node('p', 'rounded-lg border bg-emerald-50 p-3 text-sm text-emerald-800',
+                                '✓ Ja no queda material pendent en aquesta tasca.'));
+                        }
+                    } catch (err) {
+                        alert('Error en eliminar el material: ' + err.message);
+                        botoEliminar.disabled = false;
+                        botoEliminar.textContent = '🗑️ Eliminar';
+                    }
+                });
+                fila.appendChild(botoEliminar);
+            }
             fitxa.appendChild(fila);
 
             const info = node('div', 'flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-slate-600');
@@ -855,6 +895,7 @@ function filtrarVistaEstat(estatDemanat) {
 }
 </script>
 {% endblock %}
+
 
 
 
