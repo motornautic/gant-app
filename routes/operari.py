@@ -137,14 +137,19 @@ def extreure_historial_material_no_subministrat(text_mat_no_sub):
         if l.startswith("[") and "Ref:" in l:
             try:
                 data_hora = l.split("|")[0].replace("[", "").strip()
-                ref_part = l.split("Ref:")[1].split("| Op:")[0].strip()
-                op_part = l.split("| Op:")[1].replace("]", "").strip() if "| Op:" in l else ""
+                ref_part = l.split("Ref:", 1)[1].split("| Foto:", 1)[0].split("| Op:", 1)[0].strip()
+                foto_nom = l.split("| Foto:", 1)[1].split("| Op:", 1)[0].strip() if "| Foto:" in l else ""
+                # Les fotografies només poden ser fitxers de nom segur creats per l'aplicació.
+                if foto_nom != secure_filename(foto_nom) or not foto_nom.lower().endswith((".jpg", ".jpeg", ".png", ".webp")):
+                    foto_nom = ""
+                op_part = l.split("| Op:", 1)[1].replace("]", "").strip() if "| Op:" in l else ""
                 
                 registres.append({
                     "mat_idx": idx,
                     "data_hora": data_hora,
                     "referencia": ref_part,
                     "operari": op_part,
+                    "foto_nom": foto_nom,
                     "raw_text": l
                 })
             except Exception:
@@ -615,6 +620,14 @@ def pagina_detall_operari(csv_index, seccio):
     t["historial_hores"] = vincular_observacions_historial(extreure_historial_hores(t.get("Comentaris_Operari", "")), t.get("Notes_Text", ""))
     t["historial_material"] = extreure_historial_material(t.get("Material_Demanat", ""))
     t["historial_mat_no_subministrat"] = extreure_historial_material_no_subministrat(t.get("Material_No_Subministrat", ""))
+    # Les fotos de material pendent comparteixen el volum de fotos de l'embarcació.
+    carpeta_emb = secure_filename(str(t.get("Embarcació", "GENERAL")))
+    for material in t["historial_mat_no_subministrat"]:
+        nom_foto = material.get("foto_nom", "")
+        if nom_foto and os.path.isfile(os.path.join(current_app.config["UPLOAD_FOLDER"], carpeta_emb, nom_foto)):
+            material["foto_url"] = f"/uploads/{carpeta_emb}/{nom_foto}"
+        else:
+            material["foto_url"] = ""
     t["notes_visibles"] = str(t.get("Notes_Text", "") or "").replace("INCIDÈNCIA CRONÒMETRE", "OBSERVACIÓ")
     t["notes_individuals"] = _notes_per_pantalla(t.get("Notes_Text", ""), operari_sel)
     articles = []
@@ -1051,68 +1064,100 @@ def recuperar_contrasenya():
 
 @operari_bp.route("/registrar_material_no_subministrat", methods=["POST"])
 def registrar_material_no_subministrat():
-    operari_sel = request.form.get("operari_sel", "").strip() or session.get("operari_autenticat", "").strip() or request.cookies.get("operari_saved", "").strip()
-    
+    # L'operari es determina per sessió, mai pel camp enviat pel navegador.
+    operari_sel = (session.get("operari_autenticat") or "").strip()
+    es_admin = bool(session.get("admin_autenticat"))
+    if not (operari_sel or es_admin):
+        abort(403)
     try:
-        idx_raw = request.form.get("csv_index")
-        referencia_input = request.form.get("referencia", "").strip()
-        quantitat = request.form.get("quantitat", "1").strip()
-        
-        if idx_raw is not None and referencia_input:
-            idx = int(idx_raw)
-            df = carregar_tasques()
-            df_articles = carregar_articles()
-            
-            descripcio_trobada = ""
-            stock_trobat = ""
-            ubicacio_trobada = ""
-            
-            ref_neta = referencia_input.split(" - ")[0].split(" (")[0].split(" [")[0].strip()
-            
-            if not df_articles.empty and "Ref" in df_articles.columns:
-                match = df_articles[df_articles["Ref"].astype(str).str.strip().str.upper() == ref_neta.upper()]
-                if not match.empty:
-                    descripcio_trobada = str(match.iloc[0].get("Descripcio", "")).strip()
-                    stock_trobat = str(match.iloc[0].get("Stock", "0")).strip()
-                    ubicacio_trobada = str(match.iloc[0].get("Ubicacio", "")).strip()
-            
-            prefix_quantitat = f"[{quantitat} ut.] " if quantitat else ""
+        idx = int(request.form.get("csv_index", ""))
+    except (TypeError, ValueError):
+        abort(400)
 
-            if descripcio_trobada:
-                ref_formatted = f"{prefix_quantitat}{ref_neta} ({descripcio_trobada})"
-            else:
-                ref_formatted = f"{prefix_quantitat}{referencia_input}"
+    referencia_input = (request.form.get("referencia") or "").strip()
+    quantitat = (request.form.get("quantitat") or "1").strip()
+    if not referencia_input or len(referencia_input) > 250:
+        abort(400)
+    try:
+        if not 1 <= int(quantitat) <= 100000:
+            abort(400)
+    except ValueError:
+        abort(400)
 
-            detalls_extra = []
-            if stock_trobat:
-                detalls_extra.append(f"Stock: {stock_trobat}")
-            if ubicacio_trobada:
-                detalls_extra.append(f"Ubicació: {ubicacio_trobada}")
+    df = carregar_tasques()
+    if not 0 <= idx < len(df):
+        abort(404)
+    tasca = df.iloc[idx]
+    assignats = [x.strip().casefold() for x in str(tasca.get("Operari", "")).split(",") if x.strip()]
+    if not es_admin and operari_sel.casefold() not in assignats:
+        abort(403)
+    autor = operari_sel or "Administrador"
 
-            if detalls_extra:
-                ref_formatted += f" [{ ' | '.join(detalls_extra) }]"
+    df_articles = carregar_articles()
+    descripcio_trobada = ""
+    stock_trobat = ""
+    ubicacio_trobada = ""
+    ref_neta = referencia_input.split(" - ")[0].split(" (")[0].split(" [")[0].strip()
+    if not df_articles.empty and "Ref" in df_articles.columns:
+        match = df_articles[df_articles["Ref"].astype(str).str.strip().str.upper() == ref_neta.upper()]
+        if not match.empty:
+            descripcio_trobada = str(match.iloc[0].get("Descripcio", "")).strip()
+            stock_trobat = str(match.iloc[0].get("Stock", "0")).strip()
+            ubicacio_trobada = str(match.iloc[0].get("Ubicacio", "")).strip()
 
-            if 0 <= idx < len(df):
-                if "Material_No_Subministrat" not in df.columns:
-                    df["Material_No_Subministrat"] = ""
-                    
-                data_hora = datetime.now().strftime("%d/%m/%Y - %H:%M")
-                nova_entrada = f"[{data_hora} | Ref: {ref_formatted} | Op: {operari_sel}]"
-                
-                actual = str(df.at[idx, "Material_No_Subministrat"]).strip()
-                if actual and actual.lower() != "nan":
-                    df.at[idx, "Material_No_Subministrat"] = f"{actual}\n{nova_entrada}"
-                else:
-                    df.at[idx, "Material_No_Subministrat"] = nova_entrada
-                    
-                guardar_tasques(df)
-    except Exception as e:
-        print(f"❌ Error en guardar material no subministrat: {e}")
-            
-    if operari_sel:
-        return redirect(url_for("operari.vista_operari", operari=operari_sel))
+    prefix_quantitat = f"[{quantitat} ut.] "
+    if descripcio_trobada:
+        ref_formatted = f"{prefix_quantitat}{ref_neta} ({descripcio_trobada})"
     else:
-        return redirect(request.referrer or url_for("operari.vista_operari"))
+        ref_formatted = f"{prefix_quantitat}{referencia_input}"
+    detalls_extra = []
+    if stock_trobat and stock_trobat.lower() != "nan":
+        detalls_extra.append(f"Stock: {stock_trobat}")
+    if ubicacio_trobada and ubicacio_trobada.lower() != "nan":
+        detalls_extra.append(f"Ubicació: {ubicacio_trobada}")
+    if detalls_extra:
+        ref_formatted += f" [{' | '.join(detalls_extra)}]"
+    # Evitem delimitadors de registre dins la referència lliure.
+    ref_formatted = ref_formatted.replace("\n", " ").replace("\r", " ").replace("| Op:", " - Op:").replace("| Foto:", " - Foto:")
+
+    foto = request.files.get("foto_camera")
+    if not foto or not foto.filename:
+        foto = request.files.get("foto_galeria")
+    foto_nom = ""
+    if foto and foto.filename:
+        # Limitem contingut i extensions; no acceptem fitxers arbitraris.
+        original = secure_filename(foto.filename)
+        ext = os.path.splitext(original)[1].lower()
+        if ext not in (".jpg", ".jpeg", ".png", ".webp"):
+            abort(400, description="La fotografia ha de ser JPG, PNG o WEBP.")
+        dades_foto = foto.stream.read(8 * 1024 * 1024 + 1)
+        if len(dades_foto) > 8 * 1024 * 1024 or not dades_foto:
+            abort(413, description="La fotografia supera els 8 MB o està buida.")
+        capcalera_valida = (
+            (ext in (".jpg", ".jpeg") and dades_foto.startswith(b"\xff\xd8\xff")) or
+            (ext == ".png" and dades_foto.startswith(b"\x89PNG\r\n\x1a\n")) or
+            (ext == ".webp" and dades_foto.startswith(b"RIFF") and dades_foto[8:12] == b"WEBP")
+        )
+        if not capcalera_valida:
+            abort(400, description="El fitxer no sembla una imatge vàlida.")
+        carpeta = secure_filename(str(tasca.get("Embarcació") or "GENERAL")) or "GENERAL"
+        dest_dir = os.path.join(current_app.config["UPLOAD_FOLDER"], carpeta)
+        os.makedirs(dest_dir, exist_ok=True)
+        foto_nom = f"material_pendent_{datetime.now(ZoneInfo('Europe/Madrid')).strftime('%Y%m%d_%H%M%S')}_{secrets.token_hex(6)}{ext}"
+        with open(os.path.join(dest_dir, foto_nom), "wb") as fitxer:
+            fitxer.write(dades_foto)
+
+    if "Material_No_Subministrat" not in df.columns:
+        df["Material_No_Subministrat"] = ""
+    data_hora = datetime.now(ZoneInfo("Europe/Madrid")).strftime("%d/%m/%Y - %H:%M")
+    etiqueta_foto = f" | Foto: {foto_nom}" if foto_nom else ""
+    nova_entrada = f"[{data_hora} | Ref: {ref_formatted}{etiqueta_foto} | Op: {autor}]"
+    actual = str(df.at[df.index[idx], "Material_No_Subministrat"] or "").strip()
+    if actual.lower() in ("nan", "none"):
+        actual = ""
+    df.at[df.index[idx], "Material_No_Subministrat"] = f"{actual}\n{nova_entrada}" if actual else nova_entrada
+    guardar_tasques(df)
+    return redirect(url_for("operari.vista_operari", _anchor=f"tasca-{idx}"))
 
 @operari_bp.route("/eliminar_material_no_subministrat", methods=["POST"])
 def eliminar_material_no_subministrat():
