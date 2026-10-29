@@ -1,12 +1,13 @@
-from flask import Blueprint, render_template, request, redirect, url_for, current_app, jsonify
+from flask import Blueprint, render_template, request, redirect, url_for, current_app, jsonify, session, abort
 import pandas as pd
 import os, re
 import json
 from werkzeug.utils import secure_filename
 from db import carregar_tasques, guardar_tasques, carregar_operaris
-from routes.embarcacions import carregar_embarcacions
+from routes.embarcacions import carregar_embarcacions, guardar_video_embarcacio, estampar_data_fotografia
 from routes.operari import extreure_historial_hores, extreure_historial_material, calcular_total_formatted, extreure_historial_material_no_subministrat
 from datetime import datetime, timedelta
+from uuid import uuid4
 from decimal import Decimal, InvalidOperation
 
 tasques_bp = Blueprint('tasques', __name__)
@@ -139,6 +140,9 @@ def vista_tasques():
             if os.path.exists(folder_path):
                 fotos = [f"/uploads/{emb_folder}/{f}" for f in os.listdir(folder_path) if f.lower().endswith(('.png', '.jpg', '.jpeg', '.webp'))]
             item["fotos"] = fotos
+            item["videos"] = ([f"/uploads/{emb_folder}/{f}" for f in sorted(os.listdir(folder_path))
+                               if f.lower().endswith(('.mp4', '.mov', '.webm'))]
+                              if os.path.isdir(folder_path) else [])
             
             tasques_llista.append(item)
             
@@ -325,6 +329,59 @@ def toggle_pressupost_enviat():
         guardar_tasques(df)
         
     return redirect(url_for("tasques.vista_tasques"))
+
+
+
+
+
+
+# Pujar fotos o vídeos des de la vista d'administració d'una tasca.
+@tasques_bp.route("/tasques/pujar-media", methods=["POST"])
+def pujar_media_tasca():
+    if not session.get("admin_autenticat"):
+        abort(403)
+    try:
+        idx = int(request.form.get("csv_index", ""))
+    except (TypeError, ValueError):
+        abort(400)
+    df = carregar_tasques()
+    if not 0 <= idx < len(df):
+        abort(404)
+    embarcacio = str(df.iloc[idx].get("Embarcació", "")).strip()
+    df_emb = carregar_embarcacions()
+    if (not embarcacio or df_emb.empty or "Nom" not in df_emb.columns or
+        not df_emb["Nom"].astype(str).str.strip().str.casefold().eq(embarcacio.casefold()).any()):
+        abort(400, "L'embarcació de la tasca no existeix a la base de dades.")
+    video = request.files.get("video")
+    if video and video.filename:
+        guardar_video_embarcacio(video, embarcacio)
+    else:
+        foto = request.files.get("foto")
+        if not foto or not foto.filename:
+            abort(400, "Selecciona una fotografia o un vídeo.")
+        mida_max = 12 * 1024 * 1024
+        dades = foto.stream.read(mida_max + 1)
+        if not dades or len(dades) > mida_max: abort(413, "La fotografia supera els 12 MB.")
+        ext = os.path.splitext(secure_filename(foto.filename))[1].lower()
+        signatures = {
+            '.jpg': dades.startswith(bytes.fromhex('FFD8FF')),
+            '.jpeg': dades.startswith(bytes.fromhex('FFD8FF')),
+            '.png': dades.startswith(bytes.fromhex('89504E470D0A1A0A')),
+            '.webp': dades.startswith(b'RIFF') and dades[8:12] == b'WEBP',
+        }
+        if not signatures.get(ext, False): abort(400, "Només JPG, PNG o WEBP.")
+        from werkzeug.utils import secure_filename as nom_segur
+        carpeta = nom_segur(embarcacio)
+        desti = os.path.join(current_app.config['UPLOAD_FOLDER'], carpeta)
+        os.makedirs(desti, exist_ok=True)
+        moment = datetime.now()
+        dades_finals = estampar_data_fotografia(dades, ext, moment.strftime('%d/%m/%Y %H:%M'))
+        filename = f"{moment:%Y%m%d_%H%M%S}_{uuid4().hex[:12]}{ext}"
+        with open(os.path.join(desti, filename), 'wb') as handle:
+            handle.write(dades_finals)
+    return redirect(url_for('tasques.vista_tasques', view_idx=idx) + '#media-tasca')
+
+
 
 
 
