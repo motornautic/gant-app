@@ -17,9 +17,7 @@
     <form action="/pujar_foto_embarcacio" method="POST" enctype="multipart/form-data" class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
         <input type="hidden" name="csv_index" value="{{ embarcacio.csv_index }}">
         <input type="file" name="foto" accept="image/*" required class="block w-full text-xs text-slate-500 file:mr-2 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-blue-100 file:text-blue-700 file:font-bold hover:file:bg-blue-200">
-        <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg text-xs shadow whitespace-nowrap">
-            📸 Carregar Foto
-        </button>
+        <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg text-xs shadow whitespace-nowrap">📸 Carregar Foto</button>
     </form>
 </div>
 
@@ -33,48 +31,45 @@
     </form>
 </div>
 
-<!-- LLISTAT DE FOTOS -->
+<!-- FOTOS: targetes compactes -->
 <div class="bg-white rounded-xl shadow border p-4">
     <h3 class="font-bold text-sm text-slate-800 mb-4">🖼️ Fotos Registrades ({{ fotos|length }})</h3>
-    
     {% if fotos %}
-    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
         {% for f in fotos %}
-        <div class="group relative bg-slate-50 rounded-lg overflow-hidden border shadow-sm flex flex-col justify-between">
-            <a href="{{ f.url }}" target="_blank" class="block overflow-hidden h-48 bg-slate-200">
-                <img src="{{ f.url }}" class="w-full h-full object-cover group-hover:scale-105 transition duration-300">
+        <div class="group min-w-0 bg-slate-50 rounded-lg overflow-hidden border shadow-sm flex flex-col">
+            <a href="{{ f.url }}" target="_blank" rel="noopener noreferrer" class="block overflow-hidden aspect-[4/3] bg-slate-200" title="Ampliar fotografia">
+                <img src="{{ f.url }}" loading="lazy" alt="Fotografia de {{ embarcacio.Nom }}" class="w-full h-full object-cover group-hover:scale-105 transition duration-300">
             </a>
-            <div class="p-2 flex justify-between items-center bg-white border-t">
-                <span class="text-[10px] text-slate-500 truncate max-w-[150px]">{{ f.filename }}</span>
-                <form action="/eliminar_foto_embarcacio" method="POST" onsubmit="return confirm('Segur que vols eliminar aquesta foto?');" class="inline">
+            <div class="p-2 flex flex-col gap-2 bg-white border-t">
+                <span class="text-[10px] text-slate-500 truncate" title="{{ f.filename }}">{{ f.filename }}</span>
+                <form action="/eliminar_foto_embarcacio" method="POST" onsubmit="return confirm('Segur que vols eliminar aquesta foto?');">
                     <input type="hidden" name="csv_index" value="{{ embarcacio.csv_index }}">
                     <input type="hidden" name="filename" value="{{ f.filename }}">
-                    <button type="submit" class="bg-red-100 hover:bg-red-200 text-red-700 p-1.5 rounded text-xs transition" title="Eliminar foto">
-                        🗑️ Eliminar
-                    </button>
+                    <button type="submit" class="bg-red-100 hover:bg-red-200 text-red-700 px-2 py-1 rounded text-[11px] transition" title="Eliminar foto">🗑️ Eliminar</button>
                 </form>
             </div>
         </div>
         {% endfor %}
     </div>
     {% else %}
-    <div class="p-8 text-center text-slate-400 text-xs">
-        📷 No hi ha cap foto pujada per a aquesta embarcació.
-    </div>
+    <div class="p-8 text-center text-slate-400 text-xs">📷 No hi ha cap foto pujada per a aquesta embarcació.</div>
     {% endif %}
 </div>
+
+<!-- VÍDEOS: mateixa amplada compacta que les fotografies, però reproductor complet -->
 <div class="bg-white rounded-xl shadow border p-4 mt-5">
     <h3 class="font-bold text-sm text-slate-800 mb-4">🎬 Vídeos registrats ({{ videos|length }})</h3>
     {% if videos %}
-    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
     {% for v in videos %}
-        <div class="border rounded-lg p-2 bg-slate-50 space-y-2">
-            <video src="{{ v.url }}" controls preload="metadata" playsinline class="w-full rounded-lg"></video>
-            <a href="{{ v.url }}" target="_blank" rel="noopener noreferrer" class="text-xs text-blue-700 underline break-all">{{ v.filename }}</a>
+        <div class="min-w-0 border rounded-lg p-2 bg-slate-50 space-y-2">
+            <video src="{{ v.url }}" controls preload="metadata" playsinline class="block w-full aspect-video object-contain bg-black rounded-lg" aria-label="Vídeo {{ v.filename }}"></video>
+            <a href="{{ v.url }}" target="_blank" rel="noopener noreferrer" title="{{ v.filename }}" class="block truncate text-[11px] text-blue-700 underline">{{ v.filename }}</a>
             <form action="/eliminar_foto_embarcacio" method="POST" onsubmit="return confirm('Eliminar aquest vídeo definitivament?');">
                 <input type="hidden" name="csv_index" value="{{ embarcacio.csv_index }}">
                 <input type="hidden" name="filename" value="{{ v.filename }}">
-                <button class="bg-red-100 text-red-700 p-2 rounded text-xs font-bold">🗑️ Eliminar vídeo</button>
+                <button type="submit" class="bg-red-100 text-red-700 px-2 py-1 rounded text-[11px] font-bold">🗑️ Eliminar vídeo</button>
             </form>
         </div>
     {% endfor %}
