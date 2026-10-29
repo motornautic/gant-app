@@ -6,7 +6,7 @@
         <a href="/embarcacions" class="text-xs bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold px-3 py-1.5 rounded-lg transition inline-flex items-center space-x-1 mb-2">
             <span>⬅️ Tornar a Embarcacions</span>
         </a>
-        <h2 class="text-2xl font-bold text-slate-800">📸 Galeria de Fotos: <span class="text-blue-900">{{ embarcacio.Nom }}</span></h2>
+        <h2 class="text-2xl font-bold text-slate-800">📸 Galeria de Fotos i Vídeos: <span class="text-blue-900">{{ embarcacio.Nom }}</span></h2>
         <p class="text-xs text-slate-500 font-medium">Propietari: {{ embarcacio.Client_Propietari }} | {{ embarcacio.Model_Barco }}</p>
     </div>
 </div>
@@ -20,6 +20,16 @@
         <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg text-xs shadow whitespace-nowrap">
             📸 Carregar Foto
         </button>
+    </form>
+</div>
+
+<!-- PUJAR VÍDEO -->
+<div class="bg-white p-4 rounded-xl shadow mb-6 border">
+    <h3 class="font-bold text-sm mb-3">🎬 Pujar vídeo (MP4, MOV, WEBM · màxim 80 MB)</h3>
+    <form action="/pujar_foto_embarcacio" method="POST" enctype="multipart/form-data" class="flex flex-col sm:flex-row gap-3">
+        <input type="hidden" name="csv_index" value="{{ embarcacio.csv_index }}">
+        <input type="file" name="video" accept=".mp4,.mov,.webm,video/mp4,video/quicktime,video/webm" required class="flex-1 text-xs">
+        <button type="submit" class="bg-indigo-700 text-white px-4 py-2 rounded-lg text-xs font-bold">Pujar vídeo</button>
     </form>
 </div>
 
@@ -53,4 +63,23 @@
     </div>
     {% endif %}
 </div>
+<div class="bg-white rounded-xl shadow border p-4 mt-5">
+    <h3 class="font-bold text-sm text-slate-800 mb-4">🎬 Vídeos registrats ({{ videos|length }})</h3>
+    {% if videos %}
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+    {% for v in videos %}
+        <div class="border rounded-lg p-2 bg-slate-50 space-y-2">
+            <video src="{{ v.url }}" controls preload="metadata" playsinline class="w-full rounded-lg"></video>
+            <a href="{{ v.url }}" target="_blank" rel="noopener noreferrer" class="text-xs text-blue-700 underline break-all">{{ v.filename }}</a>
+            <form action="/eliminar_foto_embarcacio" method="POST" onsubmit="return confirm('Eliminar aquest vídeo definitivament?');">
+                <input type="hidden" name="csv_index" value="{{ embarcacio.csv_index }}">
+                <input type="hidden" name="filename" value="{{ v.filename }}">
+                <button class="bg-red-100 text-red-700 p-2 rounded text-xs font-bold">🗑️ Eliminar vídeo</button>
+            </form>
+        </div>
+    {% endfor %}
+    </div>
+    {% else %}<p class="text-xs text-slate-500">Encara no hi ha vídeos.</p>{% endif %}
+</div>
 {% endblock %}
+
