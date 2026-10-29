@@ -458,6 +458,119 @@
 </div>
 {% endif %}
 
+
+<script>
+// Presentació del material pendent al modal d'administració.
+// No modifica ni desa res: només ordena els registres ja existents.
+(function () {
+    function node(tag, classes, text) {
+        const el = document.createElement(tag);
+        if (classes) el.className = classes;
+        if (text !== undefined && text !== null) el.textContent = String(text);
+        return el;
+    }
+
+    function normalitzarNom(nom) {
+        try { return decodeURIComponent(nom); } catch (_) { return nom; }
+    }
+
+    function executar() {
+        const origen = document.getElementById('material-pendent-original');
+        const desti = document.getElementById('material-pendent-fitxes');
+        if (!origen || !desti) return;
+        const registres = origen.textContent.split(/\r?\n/).map(x => x.trim()).filter(Boolean);
+        if (!registres.length) return;
+
+        const fotos = new Map();
+        document.querySelectorAll('.foto-adjunta-enllac[href]').forEach(enllac => {
+            try {
+                const nom = normalitzarNom(new URL(enllac.href, location.href).pathname.split('/').pop());
+                if (nom) fotos.set(nom, enllac.href);
+            } catch (_) {}
+        });
+
+        registres.forEach((registre, index) => {
+            const contingut = registre.replace(/^\[|\]$/g, '');
+            const parts = contingut.split(/\s+\|\s+/);
+            const data = (parts.shift() || '').trim();
+            let referencia = '', titolFoto = '', fitxerFoto = '', operari = '';
+            const extres = [];
+            parts.forEach(part => {
+                const m = part.match(/^([^:]+):\s*(.*)$/);
+                if (!m) { if (part) extres.push(part); return; }
+                const clau = m[1].trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+                const valor = m[2].trim();
+                if (clau === 'ref' || clau === 'referencia') referencia = valor;
+                else if (clau === 'op' || clau === 'operari') operari = valor;
+                else if (clau === 'foto' || clau === 'fotografia') fitxerFoto = valor;
+                else if (/^titol(?:[ _-]?foto|[ _-]?fotografia)?$/.test(clau) || clau === 'titulo foto') titolFoto = valor;
+                else extres.push(part);
+            });
+            // Compatibilitat amb els registres antics i casos no estructurats.
+            if (!referencia) referencia = parts.join(' | ') || contingut;
+            const quantitat = referencia.match(/^\[\s*(\d+(?:[.,]\d+)?)\s*(?:ut\.|uds?\.?|unitats?)\s*\]\s*/i);
+            const unitats = quantitat ? quantitat[1] : '';
+            if (quantitat) referencia = referencia.slice(quantitat[0].length).trim();
+            if (extres.length && referencia !== contingut) referencia += ' · ' + extres.join(' · ');
+
+            const fitxa = node('article', 'rounded-xl border border-red-200 bg-white p-3 shadow-sm space-y-2');
+            const fila = node('div', 'flex items-start justify-between gap-2');
+            const bloc = node('div', 'min-w-0 flex-1');
+            bloc.appendChild(node('div', 'font-bold text-sm text-slate-900 break-words', '📦 ' + referencia));
+            fila.appendChild(bloc);
+            if (unitats) fila.appendChild(node('span', 'shrink-0 rounded-full bg-red-100 border border-red-200 px-2 py-1 text-xs font-extrabold text-red-900', unitats + ' ut.'));
+            fitxa.appendChild(fila);
+
+            const info = node('div', 'flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-slate-600');
+            if (data) info.appendChild(node('span', '', '🗓️ ' + data));
+            if (operari) info.appendChild(node('span', '', '👷 ' + operari));
+            if (info.childNodes.length) fitxa.appendChild(info);
+
+            if (fitxerFoto) {
+                const fotoFila = node('div', 'flex items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 p-2');
+                const nom = fitxerFoto.split(/[\/]/).pop().trim();
+                const url = fotos.get(nom);
+                if (url) {
+                    const link = node('a', 'block shrink-0 w-20 h-20 overflow-hidden rounded-lg border border-slate-200 bg-white');
+                    link.href = url;
+                    link.target = '_blank';
+                    link.rel = 'noopener noreferrer';
+                    link.title = 'Ampliar fotografia';
+                    const imatge = node('img', 'h-full w-full object-cover');
+                    imatge.src = url;
+                    imatge.alt = titolFoto || 'Fotografia del material pendent';
+                    imatge.loading = 'lazy';
+                    link.appendChild(imatge);
+                    fotoFila.appendChild(link);
+                }
+                const dadesFoto = node('div', 'min-w-0 flex-1');
+                dadesFoto.appendChild(node('p', 'text-xs font-bold text-slate-800 break-words', '📷 ' + (titolFoto || 'Fotografia adjunta')));
+                if (url) {
+                    const obrir = node('a', 'inline-block mt-1 text-xs font-semibold text-blue-700 underline', 'Veure fotografia');
+                    obrir.href = url;
+                    obrir.target = '_blank';
+                    obrir.rel = 'noopener noreferrer';
+                    dadesFoto.appendChild(obrir);
+                } else {
+                    dadesFoto.appendChild(node('p', 'mt-1 text-[11px] text-slate-500 break-all', 'Fitxer: ' + nom));
+                }
+                fotoFila.appendChild(dadesFoto);
+                fitxa.appendChild(fotoFila);
+            } else if (titolFoto) {
+                fitxa.appendChild(node('div', 'text-xs text-slate-600', '📷 ' + titolFoto));
+            }
+            desti.appendChild(fitxa);
+        });
+        if (desti.childElementCount) {
+            origen.classList.add('hidden');
+            desti.classList.remove('hidden');
+        }
+    }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', executar);
+    else executar();
+})();
+</script>
+
 <!-- MODAL VISTA RESUM UNIFICAT -->
 {% if tasca_view %}
 <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
@@ -568,9 +681,9 @@
                 <h4 class="font-bold text-red-900 mb-2 flex items-center space-x-1">
                     <span>⚠️ Material No Subministrat / Referències Escanejades</span>
                 </h4>
-                <div class="bg-red-50 p-3 rounded-lg border border-red-200 text-xs font-mono text-slate-800 whitespace-pre-line">
-                    {{ tasca_view.Material_No_Subministrat }}
-                </div>
+                <!-- Si el navegador no permet JS, conserva el text original. -->
+                <div id="material-pendent-original" class="bg-red-50 p-3 rounded-lg border border-red-200 text-xs text-slate-800 whitespace-pre-line">{{ tasca_view.Material_No_Subministrat }}</div>
+                <div id="material-pendent-fitxes" class="hidden space-y-3" aria-label="Registres de material pendent"></div>
             </div>
             {% endif %}
 
@@ -596,7 +709,7 @@
                 <h4 class="font-bold text-slate-900 mb-2">📷 Fotografies Adjuntes ({{ tasca_view.fotos|length }})</h4>
                 <div class="grid grid-cols-3 gap-2">
                     {% for foto in tasca_view.fotos %}
-                    <a href="{{ foto }}" target="_blank" class="block aspect-square rounded-lg overflow-hidden border bg-slate-100 hover:opacity-90">
+                    <a href="{{ foto }}" target="_blank" rel="noopener noreferrer" class="foto-adjunta-enllac block aspect-square rounded-lg overflow-hidden border bg-slate-100 hover:opacity-90">
                         <img src="{{ foto }}" class="w-full h-full object-cover">
                     </a>
                     {% endfor %}
@@ -742,5 +855,7 @@ function filtrarVistaEstat(estatDemanat) {
 }
 </script>
 {% endblock %}
+
+
 
 
