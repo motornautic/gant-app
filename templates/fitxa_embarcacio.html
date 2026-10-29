@@ -3,7 +3,7 @@
 <div class="max-w-4xl mx-auto space-y-4">
   <div class="flex flex-wrap items-center justify-between gap-3">
     <a href="{{ url_for('operari.vista_operari') if session.get('operari_autenticat') and not session.get('admin_autenticat') else url_for('embarcacions.vista_embarcacions') }}" class="rounded-lg bg-slate-200 px-4 py-2 text-sm font-bold text-slate-800">← Tornar</a>
-    <span class="rounded-lg bg-blue-100 px-3 py-1 text-sm font-bold text-blue-900">👁️ Fitxa de consulta · Pots afegir fotos i documents</span>
+    <span class="rounded-lg bg-blue-100 px-3 py-1 text-sm font-bold text-blue-900">👁️ Fitxa de consulta · Pots afegir fotos, vídeos i documents</span>
   </div>
   <div class="rounded-2xl bg-blue-900 text-white p-5 text-center shadow">
     <h2 class="text-2xl sm:text-3xl font-extrabold">⛵ {{ e.Nom }}</h2>
@@ -11,10 +11,10 @@
   </div>
   <!-- Accessos directes a les seccions de consulta -->
   <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-    {% if e.fotos %}
-    <a href="#fotografies-embarcacio" class="rounded-xl bg-blue-100 border border-blue-200 px-4 py-3 text-center text-blue-900 font-bold hover:bg-blue-200">📷 Veure fotografies ({{ e.fotos|length }})</a>
+    {% if e.fotos or e.videos %}
+    <a href="#fotografies-embarcacio" class="rounded-xl bg-blue-100 border border-blue-200 px-4 py-3 text-center text-blue-900 font-bold hover:bg-blue-200">📷 Fotos i vídeos ({{ e.fotos|length + e.videos|length }})</a>
     {% else %}
-    <a href="#fotografies-embarcacio" class="rounded-xl bg-blue-50 border border-blue-200 px-4 py-3 text-center text-blue-900 font-semibold">📷 Afegir la primera fotografia</a>
+    <a href="#fotografies-embarcacio" class="rounded-xl bg-blue-50 border border-blue-200 px-4 py-3 text-center text-blue-900 font-semibold">📷 Afegir fotos o vídeos</a>
     {% endif %}
     {% if e.enllacs_llista %}
     <a href="#documents-embarcacio" class="rounded-xl bg-emerald-100 border border-emerald-200 px-4 py-3 text-center text-emerald-900 font-bold hover:bg-emerald-200">📄 Veure documents i enllaços ({{ e.enllacs_llista|length }})</a>
@@ -89,7 +89,7 @@
     </details>
   </section>
   <section id="fotografies-embarcacio" class="rounded-xl bg-white p-4 border shadow-sm space-y-3 scroll-mt-5">
-    <h3 class="font-bold text-blue-900">📷 Fotografies de l'embarcació</h3>
+    <h3 class="font-bold text-blue-900">📷 Fotografies i vídeos de l'embarcació</h3>
     <p class="text-xs text-slate-500">Les fotos pujades des d'aquí quedaran guardades amb la data i l'hora sobre la imatge.</p>
     {% if request.args.get('foto_ok') %}
       <p class="rounded-lg bg-green-100 p-2 text-sm font-semibold text-green-900">✅ Fotografia guardada correctament amb la data i l'hora.</p>
@@ -102,6 +102,19 @@
       </div>
     {% else %}
       <p class="text-sm text-slate-500">Encara no hi ha fotografies.</p>
+    {% endif %}
+    {% if request.args.get('video_ok') %}
+      <p class="rounded-lg bg-green-100 p-2 text-sm font-semibold text-green-900">✅ Vídeo guardat correctament.</p>
+    {% endif %}
+    {% if e.videos %}
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {% for video in e.videos %}
+          <div class="rounded-lg border bg-slate-50 p-2 space-y-1">
+            <video controls preload="metadata" playsinline class="w-full rounded-lg" src="{{ video }}"></video>
+            <a href="{{ video }}" target="_blank" rel="noopener noreferrer" class="text-xs text-blue-700 underline">Obrir o descarregar vídeo</a>
+          </div>
+        {% endfor %}
+      </div>
     {% endif %}
     <details class="border-t pt-3">
       <summary class="cursor-pointer font-bold text-blue-800">➕ Afegir fotografies (amb data i hora)</summary>
@@ -121,9 +134,33 @@
       </div>
       <p class="text-xs text-slate-500 mt-2">JPG, PNG o WEBP, màxim 12 MB. Les fotos es guarden a la galeria de l'embarcació.</p>
     </details>
+    <details class="border-t pt-3">
+      <summary class="cursor-pointer font-bold text-blue-800">🎬 Afegir un vídeo</summary>
+      <form action="{{ url_for('embarcacions.pujar_foto_fitxa') }}" method="POST" enctype="multipart/form-data" class="mt-3 rounded-lg border bg-slate-50 p-3 space-y-2 text-sm">
+        <input type="hidden" name="nom" value="{{ e.Nom }}">
+        <label class="block font-semibold">Seleccionar vídeo (MP4, MOV, WEBM · màxim 80 MB)</label>
+        <input type="file" name="video" accept=".mp4,.mov,.webm,video/mp4,video/quicktime,video/webm" required class="block w-full text-xs">
+        <button type="submit" class="w-full rounded-lg bg-indigo-700 p-2 font-bold text-white">🎬 Guardar vídeo</button>
+      </form>
+    </details>
   </section>
 </div>
 {% endblock %}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
