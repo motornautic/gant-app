@@ -137,7 +137,8 @@ def extreure_historial_material_no_subministrat(text_mat_no_sub):
         if l.startswith("[") and "Ref:" in l:
             try:
                 data_hora = l.split("|")[0].replace("[", "").strip()
-                ref_part = l.split("Ref:", 1)[1].split("| Foto:", 1)[0].split("| Op:", 1)[0].strip()
+                ref_part = l.split("Ref:", 1)[1].split("| Titol foto:", 1)[0].split("| Foto:", 1)[0].split("| Op:", 1)[0].strip()
+                titol_foto = l.split("| Titol foto:", 1)[1].split("| Foto:", 1)[0].split("| Op:", 1)[0].strip() if "| Titol foto:" in l else ""
                 foto_nom = l.split("| Foto:", 1)[1].split("| Op:", 1)[0].strip() if "| Foto:" in l else ""
                 # Les fotografies només poden ser fitxers de nom segur creats per l'aplicació.
                 if foto_nom != secure_filename(foto_nom) or not foto_nom.lower().endswith((".jpg", ".jpeg", ".png", ".webp")):
@@ -150,6 +151,7 @@ def extreure_historial_material_no_subministrat(text_mat_no_sub):
                     "referencia": ref_part,
                     "operari": op_part,
                     "foto_nom": foto_nom,
+                    "titol_foto": titol_foto,
                     "raw_text": l
                 })
             except Exception:
@@ -1124,6 +1126,13 @@ def registrar_material_no_subministrat():
     if not foto or not foto.filename:
         foto = request.files.get("foto_galeria")
     foto_nom = ""
+    titol_foto = (request.form.get("titol_foto") or "").strip()
+    if foto and foto.filename and not titol_foto:
+        abort(400, description="Omplir títol foto abans de guardar.")
+    if len(titol_foto) > 120:
+        abort(400, description="El títol de la foto supera els 120 caràcters.")
+    # No permetem caràcters que alterin el format dels registres.
+    titol_foto = titol_foto.replace("\n", " ").replace("\r", " ").replace("|", "-").replace("]", ")")
     if foto and foto.filename:
         # Limitem contingut i extensions; no acceptem fitxers arbitraris.
         original = secure_filename(foto.filename)
@@ -1150,7 +1159,7 @@ def registrar_material_no_subministrat():
     if "Material_No_Subministrat" not in df.columns:
         df["Material_No_Subministrat"] = ""
     data_hora = datetime.now(ZoneInfo("Europe/Madrid")).strftime("%d/%m/%Y - %H:%M")
-    etiqueta_foto = f" | Foto: {foto_nom}" if foto_nom else ""
+    etiqueta_foto = f" | Titol foto: {titol_foto} | Foto: {foto_nom}" if foto_nom else ""
     nova_entrada = f"[{data_hora} | Ref: {ref_formatted}{etiqueta_foto} | Op: {autor}]"
     actual = str(df.at[df.index[idx], "Material_No_Subministrat"] or "").strip()
     if actual.lower() in ("nan", "none"):
@@ -1213,3 +1222,4 @@ def eliminar_material_no_subministrat():
     if ajax:
         return jsonify({"ok": True})
     return redirect(url_for("operari.vista_operari"))
+
