@@ -63,7 +63,7 @@
       {% elif seccio == 'pendent' %}
       <section class="rounded-xl border p-3">
         <h2 class="text-sm font-bold">⚠️ Material no subministrat</h2>
-        <form action="{{ url_for('operari.registrar_material_no_subministrat') }}" method="POST" enctype="multipart/form-data" class="mt-3 space-y-2 text-sm">
+        <form action="{{ url_for('operari.registrar_material_no_subministrat') }}" method="POST" enctype="multipart/form-data" onsubmit="return validarFotoPendent(this)" class="mt-3 space-y-2 text-sm">
           <input type="hidden" name="csv_index" value="{{ t.csv_index }}"><input type="hidden" name="operari_sel" value="{{ operari_sel }}">
           <label class="block font-semibold" for="referencia-{{ t.csv_index }}">Referència del material</label>
           <input id="referencia-{{ t.csv_index }}" name="referencia" list="llista-articles-{{ t.csv_index }}" placeholder="Escriu o escaneja la referència" required class="border rounded-lg p-2 w-full" autocomplete="off">
@@ -83,15 +83,21 @@
             <label class="block">O escollir una foto de la galeria
               <input type="file" name="foto_galeria" accept="image/jpeg,image/png,image/webp" class="block w-full mt-1 text-sm">
             </label>
-            <p class="text-xs text-slate-600">JPG, PNG o WEBP, màxim 8 MB. Si tries totes dues opcions es farà servir la foto de la càmera.</p>
+            <div data-titol-foto-wrap class="rounded-lg border border-transparent p-2 space-y-1">
+              <label class="block font-semibold" for="titol-foto-{{ t.csv_index }}">Títol de la fotografia</label>
+              <input id="titol-foto-{{ t.csv_index }}" type="text" name="titol_foto" maxlength="120" placeholder="Ex.: Junta de la bomba pendent" oninput="actualitzarTitolFoto(this.form)" class="w-full border rounded-lg p-2 bg-white" autocomplete="off">
+              <p data-avis-titol class="hidden font-bold text-red-700" role="alert">⚠️ Omplir títol foto</p>
+            </div>
+            <p class="text-xs text-slate-600">JPG, PNG o WEBP, màxim 8 MB. Si adjuntes una foto, el títol és obligatori. Si tries totes dues opcions es farà servir la foto de la càmera.</p>
           </div>
-          <button type="submit" class="bg-red-700 text-white px-3 py-2 rounded-lg font-bold w-full">Registrar material pendent</button>
+          <button type="submit" class="bg-red-700 text-white px-3 py-3 rounded-lg font-bold w-full">💾 Guardar / Registrar material pendent</button>
         </form>
         {% for m in t.historial_mat_no_subministrat %}
         <div class="material-pendent-item mt-2 border-t pt-2 flex items-start justify-between gap-2 text-xs">
           <div class="min-w-0 flex-1 space-y-2">
             <span class="block break-words">{{ m.data_hora }} · {{ m.referencia }}</span>
             {% if m.foto_url %}
+            {% if m.titol_foto %}<p class="font-semibold text-blue-900">📷 {{ m.titol_foto }}</p>{% endif %}
             <a href="{{ m.foto_url }}" target="_blank" rel="noopener noreferrer" class="inline-block" title="Obrir fotografia del material">
               <img src="{{ m.foto_url }}" alt="Fotografia del material pendent" loading="lazy" class="w-28 h-28 object-cover rounded-lg border">
               <span class="block text-blue-700 underline mt-1">📷 Veure fotografia</span>
@@ -151,6 +157,41 @@
   </div>
   <a href="{{ url_for('operari.vista_operari', _anchor='tasca-' ~ t.csv_index) }}" class="block text-center rounded-xl border bg-white mt-4 p-3 font-bold text-blue-900">← Tornar a la tasca</a>
 </div>
+<script>
+function actualitzarTitolFoto(form, forcar = false) {
+  const camera = form.querySelector('input[name="foto_camera"]');
+  const galeria = form.querySelector('input[name="foto_galeria"]');
+  const titol = form.querySelector('input[name="titol_foto"]');
+  const contenidor = form.querySelector('[data-titol-foto-wrap]');
+  const avis = form.querySelector('[data-avis-titol]');
+  const hiHaFoto = Boolean((camera && camera.files.length) || (galeria && galeria.files.length));
+  const faltaTitol = hiHaFoto && !titol.value.trim();
+  titol.required = hiHaFoto;
+  const mostrar = faltaTitol && (forcar || hiHaFoto);
+  contenidor.classList.toggle('border-red-500', mostrar);
+  contenidor.classList.toggle('bg-red-50', mostrar);
+  titol.classList.toggle('border-red-600', mostrar);
+  avis.classList.toggle('hidden', !mostrar);
+  return !faltaTitol;
+}
+function validarFotoPendent(form) {
+  const correcte = actualitzarTitolFoto(form, true);
+  if (!correcte) {
+    const titol = form.querySelector('input[name="titol_foto"]');
+    titol.focus();
+    titol.scrollIntoView({behavior:'smooth', block:'center'});
+  }
+  return correcte;
+}
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('form[action$="/registrar_material_no_subministrat"]').forEach(form => {
+    for (const nom of ['foto_camera', 'foto_galeria']) {
+      const input = form.querySelector('input[name="' + nom + '"]');
+      if (input) input.addEventListener('change', () => actualitzarTitolFoto(form));
+    }
+  });
+});
+</script>
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js" defer></script>
 <script>
   let escanerMaterialActiu = null;
@@ -341,6 +382,7 @@ async function eliminarMaterialPendent(form, event) {
 </script>
 
 {% endblock %}
+
 
 
 
