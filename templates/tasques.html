@@ -744,6 +744,38 @@
             </div>
             {% endif %}
 
+            <section id="media-tasca" class="rounded-xl border border-blue-200 bg-blue-50 p-3 space-y-3 scroll-mt-5">
+                <h4 class="font-bold text-blue-900">📸 Afegir fotos i vídeos a la tasca</h4>
+                <p class="text-xs text-slate-600">Quedaran guardats també a la galeria de l'embarcació.</p>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <form action="{{ url_for('tasques.pujar_media_tasca') }}" method="POST" enctype="multipart/form-data" class="rounded-lg bg-white border p-3 space-y-2">
+                        <input type="hidden" name="csv_index" value="{{ tasca_view.csv_index }}">
+                        <label class="block font-bold text-xs">📷 Foto (JPG, PNG, WEBP · màx. 12 MB)</label>
+                        <input type="file" name="foto" accept="image/*" required class="w-full text-xs">
+                        <button type="submit" class="w-full bg-blue-700 text-white rounded-lg p-2 font-bold">Guardar fotografia</button>
+                    </form>
+                    <form action="{{ url_for('tasques.pujar_media_tasca') }}" method="POST" enctype="multipart/form-data" class="rounded-lg bg-white border p-3 space-y-2">
+                        <input type="hidden" name="csv_index" value="{{ tasca_view.csv_index }}">
+                        <label class="block font-bold text-xs">🎬 Vídeo (MP4, MOV, WEBM · màx. 80 MB)</label>
+                        <input type="file" name="video" accept=".mp4,.mov,.webm,video/mp4,video/quicktime,video/webm" required class="w-full text-xs">
+                        <button type="submit" class="w-full bg-indigo-700 text-white rounded-lg p-2 font-bold">Guardar vídeo</button>
+                    </form>
+                </div>
+            </section>
+            {% if tasca_view.videos %}
+            <section class="space-y-2">
+                <h4 class="font-bold">🎬 Vídeos adjunts ({{ tasca_view.videos|length }})</h4>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {% for video in tasca_view.videos %}
+                    <div class="rounded-lg border p-2">
+                        <video src="{{ video }}" controls preload="metadata" playsinline class="w-full rounded"></video>
+                        <a href="{{ video }}" target="_blank" rel="noopener noreferrer" class="text-xs text-blue-700 underline">Obrir vídeo</a>
+                    </div>
+                    {% endfor %}
+                </div>
+            </section>
+            {% endif %}
+
             {% if tasca_view.fotos %}
             <div>
                 <h4 class="font-bold text-slate-900 mb-2">📷 Fotografies Adjuntes ({{ tasca_view.fotos|length }})</h4>
@@ -895,6 +927,8 @@ function filtrarVistaEstat(estatDemanat) {
 }
 </script>
 {% endblock %}
+
+
 
 
 
