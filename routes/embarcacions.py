@@ -99,6 +99,48 @@ def estampar_data_fotografia(dades_fitxer, extensio, text_data):
 
         return out.getvalue()
 
+
+# Vídeos: desats al mateix volum persistent que les fotos, sense transcodificar.
+EXTENSIONS_VIDEO = (".mp4", ".mov", ".webm")
+MAX_VIDEO_BYTES = 80 * 1024 * 1024
+
+def guardar_video_embarcacio(fitxer, nom_embarcacio):
+    if not fitxer or not fitxer.filename:
+        abort(400, "Selecciona un vídeo.")
+    extensio = os.path.splitext(secure_filename(fitxer.filename))[1].lower()
+    if extensio not in EXTENSIONS_VIDEO:
+        abort(400, "Format no admès. Utilitza MP4, MOV o WEBM.")
+    capcalera = fitxer.stream.read(16)
+    valid = ((extensio in (".mp4", ".mov") and
+              (capcalera[4:8] == b"ftyp" or (extensio == ".mov" and capcalera.startswith(b"\x00\x00\x00\x14ftyp"))))
+             or (extensio == ".webm" and capcalera.startswith(bytes.fromhex("1A45DFA3"))))
+    if not valid:
+        abort(400, "L'arxiu no sembla un vídeo vàlid del format indicat.")
+    fitxer.stream.seek(0)
+    carpeta = secure_filename(nom_embarcacio)
+    if not carpeta:
+        abort(400, "Nom d'embarcació invàlid.")
+    desti = os.path.join(current_app.config["UPLOAD_FOLDER"], carpeta)
+    os.makedirs(desti, exist_ok=True)
+    nom_fitxer = f"VIDEO_{datetime.now():%Y%m%d_%H%M%S}_{uuid4().hex[:12]}{extensio}"
+    cami = os.path.join(desti, nom_fitxer)
+    total = 0
+    try:
+        with open(cami, "xb") as sortida:
+            while True:
+                bloc = fitxer.stream.read(1024 * 1024)
+                if not bloc: break
+                total += len(bloc)
+                if total > MAX_VIDEO_BYTES:
+                    abort(413, "El vídeo supera els 80 MB. Redueix-ne la mida.")
+                sortida.write(bloc)
+        if total == 0:
+            abort(400, "El vídeo està buit.")
+    except BaseException:
+        if os.path.exists(cami): os.remove(cami)
+        raise
+    return f"/uploads/{carpeta}/{nom_fitxer}"
+
 def carregar_diccionari_motors():
     dic = {k: sorted(v) for k, v in DIC_MOTORS_BASE.items()}
     if os.path.exists(JSON_MOTORS_CUSTOM):
@@ -237,6 +279,11 @@ def fitxa_embarcacio():
          if f.lower().endswith((".jpg", ".jpeg", ".png", ".webp"))]
         if os.path.isdir(dir_fotos) else []
     )
+    embarcacio["videos"] = (
+        [f"/uploads/{carpeta}/{f}" for f in sorted(os.listdir(dir_fotos))
+         if f.lower().endswith(EXTENSIONS_VIDEO)]
+        if os.path.isdir(dir_fotos) else []
+    )
     return render_template("fitxa_embarcacio.html", e=embarcacio)
 
 
@@ -316,6 +363,11 @@ def pujar_foto_fitxa():
     if coincidencies.empty:
         abort(404)
     nom_real = str(coincidencies.iloc[0]["Nom"]).strip()
+    fitxer_video = request.files.get("video")
+    if fitxer_video and fitxer_video.filename:
+        guardar_video_embarcacio(fitxer_video, nom_real)
+        return redirect(url_for("embarcacions.fitxa_embarcacio", nom=nom_real, video_ok=1) + "#fotografies-embarcacio")
+
     fitxer = request.files.get("foto")
     if not fitxer or not fitxer.filename:
         abort(400, "Selecciona una fotografia.")
@@ -425,7 +477,11 @@ def galeria_fotos(idx):
                     "url": f"/uploads/{emb_folder}/{f}"
                 })
                 
-    return render_template("galeria_fotos.html", embarcacio=embarcacio, fotos=fotos, emb_folder=emb_folder)
+    videos = []
+    if os.path.isdir(folder_path):
+        videos = [{"filename": nom, "url": f"/uploads/{emb_folder}/{nom}"}
+                  for nom in sorted(os.listdir(folder_path)) if nom.lower().endswith(EXTENSIONS_VIDEO)]
+    return render_template("galeria_fotos.html", embarcacio=embarcacio, fotos=fotos, videos=videos, emb_folder=emb_folder)
 
 # PÀGINA INDEPENDENT DE GESTIÓ DE DOCUMENTS I ENLLAÇOS
 @embarcacions_bp.route("/embarcacions/<int:idx>/documents", methods=["GET"])
@@ -443,6 +499,12 @@ def gestio_documents(idx):
 @embarcacions_bp.route("/pujar_foto_embarcacio", methods=["POST"])
 def pujar_foto_embarcacio():
     idx = int(request.form.get("csv_index"))
+    df = carregar_embarcacions()
+    if not 0 <= idx < len(df): abort(404)
+    video = request.files.get("video")
+    if video and video.filename:
+        guardar_video_embarcacio(video, str(df.iloc[idx]["Nom"]))
+        return redirect(url_for("embarcacions.galeria_fotos", idx=idx))
     file = request.files.get("foto")
     if file and file.filename != '':
         df = carregar_embarcacions()
@@ -457,6 +519,8 @@ def pujar_foto_embarcacio():
 def eliminar_foto_embarcacio():
     idx = int(request.form.get("csv_index"))
     filename = request.form.get("filename")
+    if not filename or filename != os.path.basename(filename) or filename != secure_filename(filename):
+        abort(400)
     df = carregar_embarcacions()
     
     if idx >= 0 and idx < len(df) and filename:
@@ -673,6 +737,40 @@ def eliminar_embarcacio():
         df = df.drop(idx).reset_index(drop=True)
         guardar_embarcacions(df)
     return redirect(url_for("embarcacions.vista_embarcacions"))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
