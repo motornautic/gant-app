@@ -39,6 +39,20 @@
       <p><strong>Núm. de sèrie:</strong> {{ e.Num_Serie_Motors or '—' }}</p>
       <p><strong>Hores:</strong> {{ e.Hores_Motor or '—' }}</p>
       <p><strong>Data de lectura:</strong> {{ e.Data_Hores or '—' }}</p>
+      {% if e.get('Tipus_Propulsio') %}
+      <div class="mt-3 border-t pt-3 text-sm space-y-1">
+        <p class="font-bold text-blue-900">⚙️ Propulsió: {{ e.Tipus_Propulsio }}</p>
+        <p><strong>Marca:</strong> {{ e.get('Marca_Propulsio') or '—' }}</p>
+        <p><strong>Model:</strong> {{ e.get('Model_Propulsio') or '—' }}</p>
+        <p><strong>Número de sèrie:</strong> {{ e.get('Serie_Propulsio') or '—' }}</p>
+        {% if e.Tipus_Propulsio == 'Cues' %}
+        <p class="font-bold text-blue-900 mt-2">🔩 Transom</p>
+        <p><strong>Marca:</strong> {{ e.get('Marca_Transom') or '—' }}</p>
+        <p><strong>Model:</strong> {{ e.get('Model_Transom') or '—' }}</p>
+        <p><strong>Número de sèrie:</strong> {{ e.get('Serie_Transom') or '—' }}</p>
+        {% endif %}
+      </div>
+      {% endif %}
     </section>
   </div>
   {% if e.Comentaris %}
@@ -146,6 +160,20 @@
   </section>
 </div>
 {% endblock %}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
