@@ -192,6 +192,26 @@ def extreure_enllacs(text_enllacs):
         registres.append({"link_index": idx, "titol": titol.strip(), "url": url.strip(), "es_pdf": es_pdf, "raw_text": match.group(0)})
     return registres
 
+
+
+def _dades_propulsio_formulari(form):
+    tipus = (form.get("tipus_propulsio") or "").strip()
+    if tipus not in ("", "Reductora", "IPS", "Cues", "SailDrive"):
+        abort(400, "Tipus de propulsió no vàlid")
+    camps = {
+        "Tipus_Propulsio": tipus,
+        "Marca_Propulsio": (form.get("marca_propulsio") or "").strip()[:120],
+        "Model_Propulsio": (form.get("model_propulsio") or "").strip()[:120],
+        "Serie_Propulsio": (form.get("serie_propulsio") or "").strip()[:200],
+        "Marca_Transom": (form.get("marca_transom") or "").strip()[:120] if tipus == "Cues" else "",
+        "Model_Transom": (form.get("model_transom") or "").strip()[:120] if tipus == "Cues" else "",
+        "Serie_Transom": (form.get("serie_transom") or "").strip()[:200] if tipus == "Cues" else "",
+    }
+    if not tipus:
+        for camp in camps:
+            camps[camp] = ""
+    return camps
+
 @embarcacions_bp.route("/embarcacions", methods=["GET"])
 def vista_embarcacions():
     df_emb = carregar_embarcacions()
@@ -649,6 +669,8 @@ def afegir_embarcacio():
             "Historial_Hores": historial_str, "Enllacs": enllac_inicial, "Model_Barco": model_barco, "Matricula": matricula, 
             "Port": port, "Amarre": amarre, "Claus": claus, "Comentaris": comentaris
         }])
+        for camp, valor in _dades_propulsio_formulari(request.form).items():
+            nova[camp] = valor
         df = pd.concat([df, nova], ignore_index=True)
         guardar_embarcacions(df)
         
@@ -719,6 +741,10 @@ def editar_embarcacio():
             df.at[idx, "Data_Hores"] = nova_data
 
         df.at[idx, "Model_Barco"] = request.form.get("model_barco", "").strip()
+        for camp, valor in _dades_propulsio_formulari(request.form).items():
+            if camp not in df.columns:
+                df[camp] = ""
+            df.at[idx, camp] = valor
         df.at[idx, "Matricula"] = request.form.get("matricula", "").strip()
         df.at[idx, "Port"] = request.form.get("port", "").strip()
         df.at[idx, "Amarre"] = request.form.get("amarre", "").strip()
@@ -737,6 +763,38 @@ def eliminar_embarcacio():
         df = df.drop(idx).reset_index(drop=True)
         guardar_embarcacions(df)
     return redirect(url_for("embarcacions.vista_embarcacions"))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
