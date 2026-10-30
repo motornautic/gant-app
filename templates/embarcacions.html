@@ -65,7 +65,7 @@
 
             <!-- SECCIÓ MOTORITZACIÓ I HORES -->
             <div class="bg-slate-50 p-3 rounded-lg border">
-                <p class="text-xs font-bold text-slate-800 mb-2">⚙️ Motorització i Registre d'Hores</p>
+                <p class="text-xs font-bold text-slate-800 mb-2">⚙️ Motorització i propulsió · Registre d’hores</p>
                 
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
                     <div>
@@ -109,12 +109,35 @@
                     <label class="text-[11px] font-semibold">Data Lectura Hores: </label>
                     <input type="date" name="data_hores" value="{{ emb_edit.Data_Hores if emb_edit else now_date }}" class="p-1 border rounded text-xs bg-white">
                 </div>
-            </div>
 
-            <!-- Una propulsió individual per motor. Colors iguals a Motor 1/2. -->
-            <div class="rounded-xl border border-blue-200 bg-blue-50/50 p-3 mb-3 space-y-2">
+            <!-- Propulsió dins del mateix bloc de motorització -->
+            <div class="mt-4 border-t border-blue-200 pt-3 space-y-2">
                 <h4 class="font-bold text-sm text-blue-900">⚙️ Propulsió per motor</h4>
                 <div id="camps-propulsions" class="grid grid-cols-1 md:grid-cols-2 gap-3"></div>
+            </div>
+            </div>
+
+            <!-- Generadors independents -->
+            <div class="rounded-xl border border-amber-200 bg-amber-50/50 p-3 space-y-3">
+              <h4 class="text-sm font-bold text-amber-950">⚡ Generador</h4>
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <label class="text-xs font-semibold">Marca
+                  <select id="marca_generador_select" class="block mt-1 w-full p-2 border rounded bg-white" aria-label="Marca del generador"></select>
+                  <input type="text" id="marca_generador_nova" maxlength="120" placeholder="Escriu una nova marca" class="hidden block mt-1 w-full p-2 border rounded bg-amber-50">
+                  <input type="hidden" id="marca_generador_final" name="marca_generador" value="{{ emb_edit.get('Marca_Generador', '') if emb_edit else '' }}">
+                </label>
+                <label class="text-xs font-semibold">Model
+                  <select id="model_generador_select" class="block mt-1 w-full p-2 border rounded bg-white" aria-label="Model del generador"></select>
+                  <input type="text" id="model_generador_nou" maxlength="120" placeholder="Escriu un nou model" class="hidden block mt-1 w-full p-2 border rounded bg-amber-50">
+                  <input type="hidden" id="model_generador_final" name="model_generador" value="{{ emb_edit.get('Model_Generador', '') if emb_edit else '' }}">
+                </label>
+                <label class="text-xs font-semibold">Nombre de generadors
+                  <select id="num_generadors_form" name="num_generadors" onchange="actualitzarGeneradors()" class="block mt-1 w-full p-2 border rounded bg-white">
+                    {% for n in range(0,5) %}<option value="{{ n }}" {% if emb_edit and (emb_edit.get('Num_Generadors', '0')|int) == n %}selected{% endif %}>{{ n }}{% if n == 0 %} · Sense generador{% endif %}</option>{% endfor %}
+                  </select>
+                </label>
+              </div>
+              <div id="camps-dinamics-generadors" class="grid grid-cols-1 md:grid-cols-2 gap-3"></div>
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -553,7 +576,90 @@ function actualitzarCampsPropulsio() {
 }
 document.addEventListener('DOMContentLoaded',actualitzarCampsPropulsio);
 </script>
+<script>
+const generadorsInicials = {
+  series: {{ (emb_edit.get('Series_Generadors', '') if emb_edit else '')|tojson }},
+  hores: {{ (emb_edit.get('Hores_Generadors', '') if emb_edit else '')|tojson }}
+};
+const generadorsEstat = {
+  series: generadorsInicials.series.split(' | '),
+  hores: generadorsInicials.hores.split(' | ')
+};
+function actualitzarGeneradors() {
+  const desti=document.getElementById('camps-dinamics-generadors');
+  if(!desti)return;
+  desti.querySelectorAll('[data-gen-idx]').forEach(box=>{
+    const i=Number(box.dataset.genIdx);
+    generadorsEstat.series[i]=box.querySelector('[name^="serie_generador_"]').value;
+    generadorsEstat.hores[i]=box.querySelector('[name^="hores_generador_"]').value;
+  });
+  desti.replaceChildren();
+  const n=Number(document.getElementById('num_generadors_form').value)||0;
+  for(let i=0;i<n;i++){
+    const box=document.createElement('div');box.dataset.genIdx=String(i);
+    box.className='rounded-lg border border-amber-300 bg-white p-3 space-y-2';
+    const title=document.createElement('p');title.className='text-xs font-bold text-amber-950';title.textContent='⚡ Generador '+(i+1);box.append(title);
+    for(const [name,label,val] of [
+      ['serie_generador_'+i,'Número de sèrie',generadorsEstat.series[i]||''],
+      ['hores_generador_'+i,'Hores',generadorsEstat.hores[i]||'']]){
+      const el=document.createElement('label');el.className='block text-xs font-semibold';el.textContent=label;
+      const input=document.createElement('input');input.name=name;input.type=name.startsWith('hores')?'number':'text';
+      if(input.type==='number'){input.min='0';input.step='0.1';}
+      input.value=val;input.className='mt-1 block w-full rounded border p-2';el.append(input);box.append(el);
+    }
+    desti.append(box);
+  }
+}
+document.addEventListener('DOMContentLoaded',actualitzarGeneradors);
+</script>
+<script>
+// Els valors reals s'envien en els dos camps ocults, compatibles amb la ruta existent.
+const catalegGeneradors = {{ cataleg_generadors|tojson }};
+document.addEventListener('DOMContentLoaded', () => {
+  const sm=document.getElementById('marca_generador_select');
+  const so=document.getElementById('model_generador_select');
+  const im=document.getElementById('marca_generador_nova');
+  const io=document.getElementById('model_generador_nou');
+  const fm=document.getElementById('marca_generador_final');
+  const fo=document.getElementById('model_generador_final');
+  if(!sm||!so)return;
+  const inicialMarca=fm.value, inicialModel=fo.value;
+  function opcions(select,valors,valor){
+    select.replaceChildren();
+    const inici=new Option('— Selecciona —','');select.add(inici);
+    valors.forEach(v=>select.add(new Option(v,v)));
+    select.add(new Option(select===sm?'➕ Nova marca...':'➕ Nou model...','__nou__'));
+    select.value=valor && valors.includes(valor)?valor:valor?'__nou__':'';
+  }
+  function refrescarModels(valor){
+    const marca=fm.value;
+    const models=catalegGeneradors[marca]||[];
+    opcions(so,models,valor);
+    io.classList.toggle('hidden',so.value!=='__nou__');
+    if(so.value==='__nou__')io.value=valor||'';
+  }
+  opcions(sm,Object.keys(catalegGeneradors),inicialMarca);
+  im.classList.toggle('hidden',sm.value!=='__nou__');
+  if(sm.value==='__nou__')im.value=inicialMarca;
+  refrescarModels(inicialModel);
+  sm.addEventListener('change',()=>{
+    fm.value=sm.value==='__nou__'?'':sm.value;
+    im.value='';im.classList.toggle('hidden',sm.value!=='__nou__');
+    fo.value='';refrescarModels('');
+    if(sm.value==='__nou__')im.focus();
+  });
+  im.addEventListener('input',()=>{fm.value=im.value.trim();fo.value='';refrescarModels('');});
+  so.addEventListener('change',()=>{
+    fo.value=so.value==='__nou__'?'':so.value;
+    io.value='';io.classList.toggle('hidden',so.value!=='__nou__');
+    if(so.value==='__nou__')io.focus();
+  });
+  io.addEventListener('input',()=>{fo.value=io.value.trim();});
+});
+</script>
 {% endblock %}
+
+
 
 
 
