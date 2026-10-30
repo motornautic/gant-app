@@ -887,7 +887,10 @@ def editar_embarcacio():
         df.at[idx, "Comentaris"] = request.form.get("comentaris", "").strip()
         
         guardar_embarcacions(df)
-        
+        # Tornar directament a la fitxa de l'embarcació acabada d'editar.
+        nom_editat = str(df.at[idx, "Nom"]).strip()
+        return redirect(url_for("embarcacions.fitxa_embarcacio", nom=nom_editat))
+
     return redirect(url_for("embarcacions.vista_embarcacions"))
 
 @embarcacions_bp.route("/eliminar_embarcacio", methods=["POST"])
@@ -898,6 +901,34 @@ def eliminar_embarcacio():
         df = df.drop(idx).reset_index(drop=True)
         guardar_embarcacions(df)
     return redirect(url_for("embarcacions.vista_embarcacions"))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
