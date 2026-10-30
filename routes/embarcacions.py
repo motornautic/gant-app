@@ -195,21 +195,31 @@ def extreure_enllacs(text_enllacs):
 
 
 def _dades_propulsio_formulari(form):
-    tipus = (form.get("tipus_propulsio") or "").strip()
-    if tipus not in ("", "Reductora", "IPS", "Cues", "SailDrive"):
-        abort(400, "Tipus de propulsió no vàlid")
-    camps = {
-        "Tipus_Propulsio": tipus,
-        "Marca_Propulsio": (form.get("marca_propulsio") or "").strip()[:120],
-        "Model_Propulsio": (form.get("model_propulsio") or "").strip()[:120],
-        "Serie_Propulsio": (form.get("serie_propulsio") or "").strip()[:200],
-        "Marca_Transom": (form.get("marca_transom") or "").strip()[:120] if tipus == "Cues" else "",
-        "Model_Transom": (form.get("model_transom") or "").strip()[:120] if tipus == "Cues" else "",
-        "Serie_Transom": (form.get("serie_transom") or "").strip()[:200] if tipus == "Cues" else "",
-    }
-    if not tipus:
-        for camp in camps:
-            camps[camp] = ""
+    """Una transmissió per motor (fins a quatre). Motor 1 conserva els camps antics."""
+    n_raw = form.get("num_motors", "1")
+    n = max(1, min(4, int(n_raw) if str(n_raw).isdigit() else 1))
+    camps = {}
+    for i in range(n):
+        sufix = "" if i == 0 else f"_{i+1}"
+        sufix_form = "" if i == 0 else f"_{i+1}"
+        tipus = (form.get(f"tipus_propulsio{sufix_form}") or "").strip()
+        if tipus not in ("", "Reductora", "IPS", "Cues", "SailDrive"):
+            abort(400, "Tipus de propulsió no vàlid")
+        for nom, camp, limit in (
+            ("Tipus_Propulsio", "tipus_propulsio", 40),
+            ("Marca_Propulsio", "marca_propulsio", 120),
+            ("Model_Propulsio", "model_propulsio", 120),
+            ("Serie_Propulsio", "serie_propulsio", 200),
+            ("Marca_Transom", "marca_transom", 120),
+            ("Model_Transom", "model_transom", 120),
+            ("Serie_Transom", "serie_transom", 200),
+        ):
+            valor = (form.get(f"{camp}{sufix_form}") or "").strip()[:limit]
+            camps[f"{nom}{sufix}"] = valor if tipus and (not "Transom" in nom or tipus == "Cues") else ""
+    # Si es redueix el nombre de motors, evitar que quedin antigues propulsions.
+    for i in range(n, 4):
+        for nom in ("Tipus_Propulsio", "Marca_Propulsio", "Model_Propulsio", "Serie_Propulsio", "Marca_Transom", "Model_Transom", "Serie_Transom"):
+            camps[f"{nom}_{i+1}"] = ""
     return camps
 
 @embarcacions_bp.route("/embarcacions", methods=["GET"])
@@ -763,6 +773,41 @@ def eliminar_embarcacio():
         df = df.drop(idx).reset_index(drop=True)
         guardar_embarcacions(df)
     return redirect(url_for("embarcacions.vista_embarcacions"))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
