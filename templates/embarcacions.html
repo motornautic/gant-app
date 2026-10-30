@@ -324,6 +324,7 @@
                             <td class="p-3 align-top text-center">
                                 <div class="flex justify-center space-x-1">
                                     <a href="/embarcacions?edit_idx={{ e.csv_index }}" class="bg-amber-100 hover:bg-amber-200 text-amber-800 p-1.5 rounded text-xs font-bold" title="Editar Embarcació">✏️</a>
+                                    <a href="{{ url_for('embarcacions.fitxa_embarcacio', nom=e.Nom) }}" class="bg-blue-100 hover:bg-blue-200 text-blue-800 p-1.5 rounded text-xs font-bold" title="Veure fitxa de l'embarcació" aria-label="Veure fitxa de {{ e.Nom }}">👁️</a>
                                     <form action="/eliminar_embarcacio" method="POST" onsubmit="return confirm('Segur que vols eliminar aquesta embarcació?');" class="inline">
                                         <input type="hidden" name="csv_index" value="{{ e.csv_index }}">
                                         <button type="submit" class="bg-red-100 hover:bg-red-200 text-red-800 p-1.5 rounded text-xs font-bold" title="Eliminar">🗑️</button>
@@ -658,9 +659,6 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 </script>
 {% endblock %}
-
-
-
 
 
 
