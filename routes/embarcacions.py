@@ -9,7 +9,8 @@ from PIL import Image, ImageDraw, ImageFont, ImageOps
 from werkzeug.utils import secure_filename
 from routes.clients import carregar_clients
 # 🚀 IMPORTEM DE DB.PY PER GARANTIR LA CONEXIÓ AMB POSTGRESQL
-from db import carregar_embarcacions, guardar_embarcacions
+from db import carregar_embarcacions, guardar_embarcacions, get_engine
+from sqlalchemy import text
 
 embarcacions_bp = Blueprint('embarcacions', __name__)
 
@@ -194,6 +195,57 @@ def extreure_enllacs(text_enllacs):
 
 
 
+# Catàleg inicial orientatiu: models habituals que cal verificar amb la placa.
+# S'amplia de manera persistent a PostgreSQL amb les noves marques/models.
+CAT_PROPULSIO_INICIAL = {
+    "Reductora": {"ZF": ["ZF 25", "ZF 45", "ZF 63", "ZF 80", "ZF 220"], "Twin Disc": ["MG-5050", "MG-5065", "MG-5075"], "Technodrive": ["TMC 40", "TMC 60", "TMC 260"], "Volvo Penta": ["MS25", "HS45", "HS63"]},
+    "IPS": {"Volvo Penta": ["IPS 350", "IPS 400", "IPS 500", "IPS 600", "IPS 700", "IPS 800", "IPS 900"]},
+    "Cues": {"Volvo Penta": ["DPH", "DPS", "DP-G", "DP-S", "SX", "DPR"], "MerCruiser": ["Alpha One", "Bravo One", "Bravo Two", "Bravo Three"]},
+    "SailDrive": {"Volvo Penta": ["120S", "130S", "150S"], "Yanmar": ["SD20", "SD25", "SD50", "SD60"]},
+    "Transom": {"Volvo Penta": ["DPH", "DPS", "SX"], "MerCruiser": ["Alpha", "Bravo"]},
+}
+
+def _cataleg_propulsio():
+    cat = {t: {m: list(models) for m, models in marques.items()} for t, marques in CAT_PROPULSIO_INICIAL.items()}
+    try:
+        engine = get_engine()
+        if engine is not None:
+            with engine.begin() as conn:
+                conn.execute(text('CREATE TABLE IF NOT EXISTS cataleg_propulsio (tipus VARCHAR(30) NOT NULL, marca VARCHAR(120) NOT NULL, model VARCHAR(120) NOT NULL, PRIMARY KEY (tipus, marca, model))'))
+                for fila in conn.execute(text('SELECT tipus, marca, model FROM cataleg_propulsio')):
+                    cat.setdefault(fila[0], {}).setdefault(fila[1], []).append(fila[2])
+    except Exception as err:
+        print('Catàleg de propulsió: lectura no disponible:', err)
+    # Recupera també les opcions ja desades a les embarcacions.
+    try:
+        df = carregar_embarcacions()
+        for _, row in df.iterrows():
+            for i in range(1, 5):
+                suf = '' if i == 1 else f'_{i}'
+                tipus = str(row.get('Tipus_Propulsio'+suf, '') or '').strip()
+                for t, prefix in ((tipus, 'Propulsio'), ('Transom' if tipus == 'Cues' else '', 'Transom')):
+                    marca = str(row.get('Marca_'+prefix+suf, '') or '').strip()
+                    model = str(row.get('Model_'+prefix+suf, '') or '').strip()
+                    if t and marca and marca.lower() != 'nan':
+                        cat.setdefault(t, {}).setdefault(marca, [])
+                        if model and model.lower() != 'nan': cat[t][marca].append(model)
+    except Exception as err:
+        print('Catàleg propulsió: no es poden llegir embarcacions:', err)
+    return {t: {m: sorted(set(v), key=str.casefold) for m,v in sorted(marques.items())} for t, marques in cat.items()}
+
+def _desar_novetats_propulsio(camps):
+    engine = get_engine()
+    if engine is None: return
+    with engine.begin() as conn:
+        conn.execute(text('CREATE TABLE IF NOT EXISTS cataleg_propulsio (tipus VARCHAR(30) NOT NULL, marca VARCHAR(120) NOT NULL, model VARCHAR(120) NOT NULL, PRIMARY KEY (tipus, marca, model))'))
+        for i in range(1, 5):
+            suf = '' if i == 1 else f'_{i}'
+            tipus = camps.get('Tipus_Propulsio'+suf, '')
+            for t, p in ((tipus, 'Propulsio'), ('Transom' if tipus == 'Cues' else '', 'Transom')):
+                marca, model = camps.get('Marca_'+p+suf,''), camps.get('Model_'+p+suf,'')
+                if t and marca:
+                    conn.execute(text('INSERT INTO cataleg_propulsio (tipus,marca,model) VALUES (:t,:m,:mo) ON CONFLICT DO NOTHING'), {'t':t,'m':marca,'mo':model or ''})
+
 def _dades_propulsio_formulari(form):
     """Una transmissió per motor (fins a quatre). Motor 1 conserva els camps antics."""
     n_raw = form.get("num_motors", "1")
@@ -275,7 +327,7 @@ def vista_embarcacions():
         llista_emb.sort(key=lambda x: str(x.get("Client_Propietari", "")).lower(), reverse=True)
             
     now_date = datetime.now().strftime("%Y-%m-%d")
-    return render_template("embarcacions.html", embarcacions=llista_emb, clients_llista=sorted(llista_clients_noms), dic_motors=dic_motors, edit_idx=edit_idx, emb_edit=emb_edit, now_date=now_date, current_sort=sort_by)
+    return render_template("embarcacions.html", cataleg_propulsio=_cataleg_propulsio(), embarcacions=llista_emb, clients_llista=sorted(llista_clients_noms), dic_motors=dic_motors, edit_idx=edit_idx, emb_edit=emb_edit, now_date=now_date, current_sort=sort_by)
 
 # FITXA INDIVIDUAL D'EMBARCACIÓ (NOMÉS CONSULTA)
 @embarcacions_bp.route("/embarcacions/fitxa", methods=["GET"])
@@ -679,7 +731,9 @@ def afegir_embarcacio():
             "Historial_Hores": historial_str, "Enllacs": enllac_inicial, "Model_Barco": model_barco, "Matricula": matricula, 
             "Port": port, "Amarre": amarre, "Claus": claus, "Comentaris": comentaris
         }])
-        for camp, valor in _dades_propulsio_formulari(request.form).items():
+        dades_propulsio = _dades_propulsio_formulari(request.form)
+        _desar_novetats_propulsio(dades_propulsio)
+        for camp, valor in dades_propulsio.items():
             nova[camp] = valor
         df = pd.concat([df, nova], ignore_index=True)
         guardar_embarcacions(df)
@@ -751,7 +805,9 @@ def editar_embarcacio():
             df.at[idx, "Data_Hores"] = nova_data
 
         df.at[idx, "Model_Barco"] = request.form.get("model_barco", "").strip()
-        for camp, valor in _dades_propulsio_formulari(request.form).items():
+        dades_propulsio = _dades_propulsio_formulari(request.form)
+        _desar_novetats_propulsio(dades_propulsio)
+        for camp, valor in dades_propulsio.items():
             if camp not in df.columns:
                 df[camp] = ""
             df.at[idx, camp] = valor
@@ -773,6 +829,32 @@ def eliminar_embarcacio():
         df = df.drop(idx).reset_index(drop=True)
         guardar_embarcacions(df)
     return redirect(url_for("embarcacions.vista_embarcacions"))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
