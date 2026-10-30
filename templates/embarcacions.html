@@ -462,6 +462,7 @@ window.onload = function() {
 </script>
 <script>
 // Compatibilitat amb la propulsió existent de motor 1 i fins a quatre motors.
+const catalegPropulsio = {{ cataleg_propulsio|tojson }};
 const propulsionsInicials = [
 {% for i in range(1,5) %}
 {% set suf = '' if i == 1 else '_' ~ i %}
@@ -501,23 +502,60 @@ function actualitzarCampsPropulsio() {
    const label=document.createElement('label');label.className='block text-xs font-semibold';label.textContent=etiqueta;
    const inp=document.createElement('input');inp.type='text';inp.name=nom+suf;inp.dataset.camp=nom;inp.maxLength=max;inp.value=d[clau]||'';inp.className='block w-full border rounded p-2 bg-white mt-1';label.appendChild(inp);return label;
   }
+  function campCataleg(clau, nom, etiqueta, esTransom=false) {
+   const label=document.createElement('label');label.className='block text-xs font-semibold';label.textContent=etiqueta;
+   const selector=document.createElement('select');selector.className='block w-full border rounded p-2 bg-white mt-1';
+   const entrada=document.createElement('input');entrada.type='text';entrada.name=nom+suf;entrada.dataset.camp=nom;entrada.maxLength=120;entrada.className='block w-full border rounded p-2 bg-amber-50 mt-1 hidden';entrada.value=d[clau]||'';
+   label.append(selector,entrada);
+   function valors() {
+    const tipusCat=esTransom?'Transom':sel.value;
+    const marques=catalegPropulsio[tipusCat]||{};
+    const marcaActual=esTransom ? (caixa.querySelector('[data-camp="marca_transom"]')?.value || d.transomMarca || '') : (caixa.querySelector('[data-camp="marca_propulsio"]')?.value || d.marca || '');
+    if (clau==='marca'||clau==='transomMarca') return Object.keys(marques);
+    return marques[marcaActual]||[];
+   }
+   function refrescar() {
+    const valor=entrada.value;
+    selector.replaceChildren();
+    let op=document.createElement('option');op.value='';op.textContent='— Selecciona —';selector.append(op);
+    for(const v of valors()){const option=document.createElement('option');option.value=v;option.textContent=v;selector.append(option)}
+    op=document.createElement('option');op.value='__nou__';op.textContent='➕ '+(etiqueta==='Marca'?'Nova marca...':'Nou model...');selector.append(op);
+    const existeix=[...selector.options].some(o=>o.value===valor && valor!=='');
+    selector.value=existeix?valor:(valor?'__nou__':'');
+    entrada.classList.toggle('hidden',selector.value!=='__nou__');
+   }
+   selector.addEventListener('change',()=>{
+    if(selector.value==='__nou__'){entrada.value='';entrada.classList.remove('hidden');entrada.focus();}
+    else {entrada.value=selector.value;entrada.classList.add('hidden');}
+    if(clau==='marca'||clau==='transomMarca') {
+      const m=caixa.querySelector('[data-model-selector="'+(esTransom?'transom':'propulsio')+'"]');
+      if(m) {const campModel=m.parentElement.querySelector('input');campModel.value='';m.dispatchEvent(new Event('refrescarCataleg'));}
+    }
+   });
+   selector.addEventListener('refrescarCataleg',refrescar);
+   if(clau==='model'||clau==='transomModel')selector.dataset.modelSelector=esTransom?'transom':'propulsio';
+   entrada.addEventListener('change',()=>{if(clau==='marca'||clau==='transomMarca'){const m=caixa.querySelector('[data-model-selector="'+(esTransom?'transom':'propulsio')+'"]');if(m)m.dispatchEvent(new Event('refrescarCataleg'));}});
+   refrescar();return label;
+  }
   const tipusLabel=document.createElement('label');tipusLabel.className='block text-xs font-bold';tipusLabel.textContent='Tipus de propulsió';
   const sel=document.createElement('select');sel.name='tipus_propulsio'+suf;sel.dataset.camp='tipus_propulsio';sel.className='block w-full border rounded p-2 bg-white mt-1';
   for (const tipus of ['','Reductora','IPS','Cues','SailDrive']) {const op=document.createElement('option');op.value=tipus;op.textContent=tipus||'— Selecciona —';sel.appendChild(op)}
   sel.value=d.tipus||'';tipusLabel.appendChild(sel);caixa.appendChild(tipusLabel);
   const dades=document.createElement('div');dades.className='grid grid-cols-1 gap-2 sm:grid-cols-3';
-  dades.append(camp('marca','marca_propulsio','Marca'),camp('model','model_propulsio','Model'),camp('serie','serie_propulsio','Núm. de sèrie',200));caixa.appendChild(dades);
+  dades.append(campCataleg('marca','marca_propulsio','Marca'),campCataleg('model','model_propulsio','Model'),camp('serie','serie_propulsio','Núm. de sèrie',200));caixa.appendChild(dades);
   const transom=document.createElement('div');transom.className='rounded-lg border border-amber-200 bg-amber-50 p-2 space-y-2';
   const tx=document.createElement('p');tx.className='text-xs font-bold';tx.textContent='🔩 Transom · motor '+(i+1);transom.appendChild(tx);
   const txGrid=document.createElement('div');txGrid.className='grid grid-cols-1 sm:grid-cols-3 gap-2';
-  txGrid.append(camp('transomMarca','marca_transom','Marca'),camp('transomModel','model_transom','Model'),camp('transomSerie','serie_transom','Núm. de sèrie',200));transom.appendChild(txGrid);caixa.appendChild(transom);
-  function canviar(){dades.hidden=!sel.value;transom.hidden=sel.value!=='Cues';}
+  txGrid.append(campCataleg('transomMarca','marca_transom','Marca',true),campCataleg('transomModel','model_transom','Model',true),camp('transomSerie','serie_transom','Núm. de sèrie',200));transom.appendChild(txGrid);caixa.appendChild(transom);
+  function canviar(){dades.hidden=!sel.value;transom.hidden=sel.value!=='Cues'; if(!caixa.dataset.tipusInicialitzat || caixa.dataset.tipusInicialitzat!==sel.value){if(caixa.dataset.tipusInicialitzat){caixa.querySelector('[data-camp=marca_propulsio]').value='';caixa.querySelector('[data-camp=model_propulsio]').value='';} caixa.querySelectorAll('[data-camp=marca_propulsio],[data-camp=model_propulsio]').forEach(x=>x.parentElement.querySelector('select')?.dispatchEvent(new Event('refrescarCataleg'))); caixa.dataset.tipusInicialitzat=sel.value;}}
   sel.addEventListener('change',canviar);canviar();desti.appendChild(caixa);
  }
 }
 document.addEventListener('DOMContentLoaded',actualitzarCampsPropulsio);
 </script>
 {% endblock %}
+
+
 
 
 
