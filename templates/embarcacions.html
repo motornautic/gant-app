@@ -111,6 +111,45 @@
                 </div>
             </div>
 
+            <!-- TRANSMISSIÓ / PROPULSIÓ -->
+            <div class="rounded-xl border border-blue-200 bg-blue-50/50 p-3 mb-3 space-y-2">
+                <h4 class="font-bold text-sm text-blue-900">⚙️ Propulsió</h4>
+                <div>
+                    <label class="block text-xs font-bold mb-1" for="tipus-propulsio">Tipus de propulsió</label>
+                    <select id="tipus-propulsio" name="tipus_propulsio" onchange="actualitzarCampsPropulsio()" class="w-full border rounded p-2 text-sm bg-white">
+                        <option value="">— Selecciona —</option>
+                        {% for tipus in ['Reductora', 'IPS', 'Cues', 'SailDrive'] %}
+                        <option value="{{ tipus }}" {% if emb_edit and emb_edit.get('Tipus_Propulsio', '') == tipus %}selected{% endif %}>{{ tipus }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div id="dades-propulsio" class="grid grid-cols-1 sm:grid-cols-3 gap-2" style="display:none">
+                    <label class="text-xs font-semibold">Marca
+                        <input type="text" name="marca_propulsio" maxlength="120" value="{{ emb_edit.get('Marca_Propulsio', '') if emb_edit else '' }}" class="block w-full border rounded p-2 bg-white mt-1" placeholder="Marca">
+                    </label>
+                    <label class="text-xs font-semibold">Model
+                        <input type="text" name="model_propulsio" maxlength="120" value="{{ emb_edit.get('Model_Propulsio', '') if emb_edit else '' }}" class="block w-full border rounded p-2 bg-white mt-1" placeholder="Model">
+                    </label>
+                    <label class="text-xs font-semibold">Número de sèrie
+                        <input type="text" name="serie_propulsio" maxlength="200" value="{{ emb_edit.get('Serie_Propulsio', '') if emb_edit else '' }}" class="block w-full border rounded p-2 bg-white mt-1" placeholder="Núm. de sèrie">
+                    </label>
+                </div>
+                <div id="dades-transom" class="rounded-lg border border-amber-200 bg-amber-50 p-2" style="display:none">
+                    <h5 class="font-bold text-xs mb-2">🔩 Transom (quan porta cues)</h5>
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                        <label class="text-xs font-semibold">Marca
+                            <input type="text" name="marca_transom" maxlength="120" value="{{ emb_edit.get('Marca_Transom', '') if emb_edit else '' }}" class="block w-full border rounded p-2 bg-white mt-1">
+                        </label>
+                        <label class="text-xs font-semibold">Model
+                            <input type="text" name="model_transom" maxlength="120" value="{{ emb_edit.get('Model_Transom', '') if emb_edit else '' }}" class="block w-full border rounded p-2 bg-white mt-1">
+                        </label>
+                        <label class="text-xs font-semibold">Número de sèrie
+                            <input type="text" name="serie_transom" maxlength="200" value="{{ emb_edit.get('Serie_Transom', '') if emb_edit else '' }}" class="block w-full border rounded p-2 bg-white mt-1">
+                        </label>
+                    </div>
+                </div>
+            </div>
+
             <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
                     <label class="block text-xs font-bold mb-1">Matrícula / Folio</label>
@@ -404,7 +443,7 @@ function carregarModelsForm() {
 
 function checkModelCustomForm() {
     let modelVal = document.getElementById("model_form").value;
-    let inputModelCustom = document.getElementById("model_custom_form");
+    let inputModelCustom = document.getElementById("input_model_custom");
     if (inputModelCustom) inputModelCustom.style.display = (modelVal === "ALTRES") ? "block" : "none";
 }
 
@@ -454,7 +493,20 @@ window.onload = function() {
     {% endif %}
 };
 </script>
+<script>
+function actualitzarCampsPropulsio() {
+    const selector = document.getElementById('tipus-propulsio');
+    const dades = document.getElementById('dades-propulsio');
+    const transom = document.getElementById('dades-transom');
+    if (!selector || !dades || !transom) return;
+    dades.style.display = selector.value ? 'grid' : 'none';
+    transom.style.display = selector.value === 'Cues' ? 'block' : 'none';
+}
+document.addEventListener('DOMContentLoaded', actualitzarCampsPropulsio);
+</script>
 {% endblock %}
+
+
 
 
 
