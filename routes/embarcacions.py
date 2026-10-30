@@ -327,7 +327,7 @@ def vista_embarcacions():
         llista_emb.sort(key=lambda x: str(x.get("Client_Propietari", "")).lower(), reverse=True)
             
     now_date = datetime.now().strftime("%Y-%m-%d")
-    return render_template("embarcacions.html", cataleg_propulsio=_cataleg_propulsio(), embarcacions=llista_emb, clients_llista=sorted(llista_clients_noms), dic_motors=dic_motors, edit_idx=edit_idx, emb_edit=emb_edit, now_date=now_date, current_sort=sort_by)
+    return render_template("embarcacions.html", cataleg_propulsio=_cataleg_propulsio(), cataleg_generadors=_cataleg_generadors(), embarcacions=llista_emb, clients_llista=sorted(llista_clients_noms), dic_motors=dic_motors, edit_idx=edit_idx, emb_edit=emb_edit, now_date=now_date, current_sort=sort_by)
 
 # FITXA INDIVIDUAL D'EMBARCACIÓ (NOMÉS CONSULTA)
 @embarcacions_bp.route("/embarcacions/fitxa", methods=["GET"])
@@ -669,6 +669,65 @@ def eliminar_document_embarcacio():
             
     return redirect(url_for("embarcacions.gestio_documents", idx=idx))
 
+
+CAT_GENERADORS_INICIAL = {
+    "Cummins Onan": ["MDK", "MDKB", "MDKC", "QD"],
+    "Kohler": ["5E", "7.3E", "9EOZD", "13EOZD"],
+    "Fischer Panda": ["Panda 5000", "Panda 8000", "Panda 10000"],
+    "Westerbeke": ["5.0 BCG", "7.6 BTD", "8.0 BTD"],
+    "Northern Lights": ["M673L3", "M843NW3", "M864W3"],
+    "Mase": ["IS 2.6", "IS 5.0", "IS 8.1"],
+    "Paguro": ["4000", "6000", "9000"],
+}
+
+def _cataleg_generadors():
+    cat = {marca: list(models) for marca, models in CAT_GENERADORS_INICIAL.items()}
+    try:
+        eng=get_engine()
+        if eng is not None:
+            with eng.begin() as conn:
+                conn.execute(text('CREATE TABLE IF NOT EXISTS cataleg_generadors (marca VARCHAR(120) NOT NULL, model VARCHAR(120) NOT NULL, PRIMARY KEY (marca, model))'))
+                for marca, model in conn.execute(text('SELECT marca, model FROM cataleg_generadors')):
+                    cat.setdefault(marca, []).append(model)
+    except Exception as err:
+        print('Catàleg generadors no disponible:', err)
+    try:
+        for _, fila in carregar_embarcacions().iterrows():
+            marca=str(fila.get('Marca_Generador','') or '').strip()
+            model=str(fila.get('Model_Generador','') or '').strip()
+            if marca and marca.lower() != 'nan':
+                cat.setdefault(marca, [])
+                if model and model.lower() != 'nan': cat[marca].append(model)
+    except Exception as err:
+        print('No es poden incorporar generadors existents al catàleg:', err)
+    return {m:sorted(set(models),key=str.casefold) for m,models in sorted(cat.items(),key=lambda x:x[0].casefold())}
+
+def _desar_novetat_generador(camps):
+    marca=camps.get('Marca_Generador','').strip()
+    model=camps.get('Model_Generador','').strip()
+    if not marca: return
+    try:
+        eng=get_engine()
+        if eng is not None:
+            with eng.begin() as conn:
+                conn.execute(text('CREATE TABLE IF NOT EXISTS cataleg_generadors (marca VARCHAR(120) NOT NULL, model VARCHAR(120) NOT NULL, PRIMARY KEY (marca, model))'))
+                conn.execute(text('INSERT INTO cataleg_generadors (marca,model) VALUES (:marca,:model) ON CONFLICT DO NOTHING'), {'marca':marca,'model':model})
+    except Exception as err:
+        print('No es pot desar la novetat de generador:', err)
+
+def _dades_generadors_formulari(form):
+    nombre = form.get("num_generadors", "0").strip()
+    n = max(0, min(4, int(nombre))) if nombre.isdigit() else 0
+    series = [form.get(f"serie_generador_{i}", "").strip()[:180] for i in range(n)]
+    hores = [form.get(f"hores_generador_{i}", "").strip()[:40] for i in range(n)]
+    return {
+        "Marca_Generador": form.get("marca_generador", "").strip()[:120],
+        "Model_Generador": form.get("model_generador", "").strip()[:120],
+        "Num_Generadors": str(n),
+        "Series_Generadors": " | ".join(series),
+        "Hores_Generadors": " | ".join(hores)
+    }
+
 @embarcacions_bp.route("/afegir_embarcacio", methods=["POST"])
 def afegir_embarcacio():
     nom = request.form.get("nom", "").strip()
@@ -731,6 +790,10 @@ def afegir_embarcacio():
             "Historial_Hores": historial_str, "Enllacs": enllac_inicial, "Model_Barco": model_barco, "Matricula": matricula, 
             "Port": port, "Amarre": amarre, "Claus": claus, "Comentaris": comentaris
         }])
+        dades_generadors = _dades_generadors_formulari(request.form)
+        _desar_novetat_generador(dades_generadors)
+        for camp, valor in dades_generadors.items():
+            nova[camp] = valor
         dades_propulsio = _dades_propulsio_formulari(request.form)
         _desar_novetats_propulsio(dades_propulsio)
         for camp, valor in dades_propulsio.items():
@@ -804,6 +867,12 @@ def editar_embarcacio():
             df.at[idx, "Hores_Motor"] = hores_str
             df.at[idx, "Data_Hores"] = nova_data
 
+        dades_generadors = _dades_generadors_formulari(request.form)
+        _desar_novetat_generador(dades_generadors)
+        for camp, valor in dades_generadors.items():
+            if camp not in df.columns:
+                df[camp] = ""
+            df.at[idx, camp] = valor
         df.at[idx, "Model_Barco"] = request.form.get("model_barco", "").strip()
         dades_propulsio = _dades_propulsio_formulari(request.form)
         _desar_novetats_propulsio(dades_propulsio)
@@ -829,6 +898,35 @@ def eliminar_embarcacio():
         df = df.drop(idx).reset_index(drop=True)
         guardar_embarcacions(df)
     return redirect(url_for("embarcacions.vista_embarcacions"))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
