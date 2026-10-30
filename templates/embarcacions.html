@@ -94,7 +94,7 @@
                     </div>
                     <div>
                         <label class="block text-xs font-semibold mb-1">Número de Motors</label>
-                        <select id="num_motors_form" name="num_motors" onchange="actualitzarCampsMotorsForm()" class="w-full p-2 border rounded text-xs bg-white font-bold text-blue-900">
+                        <select id="num_motors_form" name="num_motors" onchange="actualitzarCampsMotorsForm(); actualitzarCampsPropulsio()" class="w-full p-2 border rounded text-xs bg-white font-bold text-blue-900">
                             <option value="1" {% if emb_edit and emb_edit.Num_Motors == '1' %}selected{% endif %}>1 Motor (Monomotor)</option>
                             <option value="2" {% if emb_edit and emb_edit.Num_Motors == '2' %}selected{% endif %}>2 Motors (Bimotor)</option>
                             <option value="3" {% if emb_edit and emb_edit.Num_Motors == '3' %}selected{% endif %}>3 Motors (Trimotor)</option>
@@ -111,43 +111,10 @@
                 </div>
             </div>
 
-            <!-- TRANSMISSIÓ / PROPULSIÓ -->
+            <!-- Una propulsió individual per motor. Colors iguals a Motor 1/2. -->
             <div class="rounded-xl border border-blue-200 bg-blue-50/50 p-3 mb-3 space-y-2">
-                <h4 class="font-bold text-sm text-blue-900">⚙️ Propulsió</h4>
-                <div>
-                    <label class="block text-xs font-bold mb-1" for="tipus-propulsio">Tipus de propulsió</label>
-                    <select id="tipus-propulsio" name="tipus_propulsio" onchange="actualitzarCampsPropulsio()" class="w-full border rounded p-2 text-sm bg-white">
-                        <option value="">— Selecciona —</option>
-                        {% for tipus in ['Reductora', 'IPS', 'Cues', 'SailDrive'] %}
-                        <option value="{{ tipus }}" {% if emb_edit and emb_edit.get('Tipus_Propulsio', '') == tipus %}selected{% endif %}>{{ tipus }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <div id="dades-propulsio" class="grid grid-cols-1 sm:grid-cols-3 gap-2" style="display:none">
-                    <label class="text-xs font-semibold">Marca
-                        <input type="text" name="marca_propulsio" maxlength="120" value="{{ emb_edit.get('Marca_Propulsio', '') if emb_edit else '' }}" class="block w-full border rounded p-2 bg-white mt-1" placeholder="Marca">
-                    </label>
-                    <label class="text-xs font-semibold">Model
-                        <input type="text" name="model_propulsio" maxlength="120" value="{{ emb_edit.get('Model_Propulsio', '') if emb_edit else '' }}" class="block w-full border rounded p-2 bg-white mt-1" placeholder="Model">
-                    </label>
-                    <label class="text-xs font-semibold">Número de sèrie
-                        <input type="text" name="serie_propulsio" maxlength="200" value="{{ emb_edit.get('Serie_Propulsio', '') if emb_edit else '' }}" class="block w-full border rounded p-2 bg-white mt-1" placeholder="Núm. de sèrie">
-                    </label>
-                </div>
-                <div id="dades-transom" class="rounded-lg border border-amber-200 bg-amber-50 p-2" style="display:none">
-                    <h5 class="font-bold text-xs mb-2">🔩 Transom (quan porta cues)</h5>
-                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                        <label class="text-xs font-semibold">Marca
-                            <input type="text" name="marca_transom" maxlength="120" value="{{ emb_edit.get('Marca_Transom', '') if emb_edit else '' }}" class="block w-full border rounded p-2 bg-white mt-1">
-                        </label>
-                        <label class="text-xs font-semibold">Model
-                            <input type="text" name="model_transom" maxlength="120" value="{{ emb_edit.get('Model_Transom', '') if emb_edit else '' }}" class="block w-full border rounded p-2 bg-white mt-1">
-                        </label>
-                        <label class="text-xs font-semibold">Número de sèrie
-                            <input type="text" name="serie_transom" maxlength="200" value="{{ emb_edit.get('Serie_Transom', '') if emb_edit else '' }}" class="block w-full border rounded p-2 bg-white mt-1">
-                        </label>
-                    </div>
-                </div>
+                <h4 class="font-bold text-sm text-blue-900">⚙️ Propulsió per motor</h4>
+                <div id="camps-propulsions" class="grid grid-cols-1 md:grid-cols-2 gap-3"></div>
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -494,17 +461,65 @@ window.onload = function() {
 };
 </script>
 <script>
+// Compatibilitat amb la propulsió existent de motor 1 i fins a quatre motors.
+const propulsionsInicials = [
+{% for i in range(1,5) %}
+{% set suf = '' if i == 1 else '_' ~ i %}
+{
+ tipus: {{ (emb_edit.get('Tipus_Propulsio' ~ suf, '') if emb_edit else '')|tojson }},
+ marca: {{ (emb_edit.get('Marca_Propulsio' ~ suf, '') if emb_edit else '')|tojson }},
+ model: {{ (emb_edit.get('Model_Propulsio' ~ suf, '') if emb_edit else '')|tojson }},
+ serie: {{ (emb_edit.get('Serie_Propulsio' ~ suf, '') if emb_edit else '')|tojson }},
+ transomMarca: {{ (emb_edit.get('Marca_Transom' ~ suf, '') if emb_edit else '')|tojson }},
+ transomModel: {{ (emb_edit.get('Model_Transom' ~ suf, '') if emb_edit else '')|tojson }},
+ transomSerie: {{ (emb_edit.get('Serie_Transom' ~ suf, '') if emb_edit else '')|tojson }}
+}{% if not loop.last %},{% endif %}
+{% endfor %}
+];
+let dadesPropulsions = propulsionsInicials.map(x => ({...x}));
 function actualitzarCampsPropulsio() {
-    const selector = document.getElementById('tipus-propulsio');
-    const dades = document.getElementById('dades-propulsio');
-    const transom = document.getElementById('dades-transom');
-    if (!selector || !dades || !transom) return;
-    dades.style.display = selector.value ? 'grid' : 'none';
-    transom.style.display = selector.value === 'Cues' ? 'block' : 'none';
+ const desti = document.getElementById('camps-propulsions');
+ const n = Math.min(4,Math.max(1,parseInt(document.getElementById('num_motors_form').value)||1));
+ // Preservar modificacions mentre l'usuari canvia el nombre de motors.
+ desti.querySelectorAll('[data-propulsio-index]').forEach(c => {
+  const i = Number(c.dataset.propulsioIndex);
+  const dades = dadesPropulsions[i] || {};
+  for (const [k, nom] of Object.entries({tipus:'tipus_propulsio',marca:'marca_propulsio',model:'model_propulsio',serie:'serie_propulsio',transomMarca:'marca_transom',transomModel:'model_transom',transomSerie:'serie_transom'})) {
+   const camp = c.querySelector('[data-camp="'+nom+'"]'); if(camp) dades[k]=camp.value;
+  }
+  dadesPropulsions[i]=dades;
+ });
+ desti.replaceChildren();
+ for(let i=0;i<n;i++) {
+  const d = dadesPropulsions[i] || {};
+  const caixa=document.createElement('div');caixa.dataset.propulsioIndex=String(i);
+  const esBabor=i===0 && n>=2, esEstribor=i===n-1 && n>=2;
+  caixa.className='rounded-xl border p-3 space-y-2 '+(esBabor?'border-red-400 bg-red-50':esEstribor?'border-emerald-400 bg-emerald-50':'border-slate-300 bg-white');
+  const titol=document.createElement('h5');titol.className='font-bold text-xs text-slate-800';titol.textContent='Propulsió motor '+(i+1)+(esBabor?' · Babor':esEstribor?' · Estribor':'');caixa.appendChild(titol);
+  const suf=i===0?'':'_'+(i+1);
+  function camp(clau, nom, etiqueta, max=120) {
+   const label=document.createElement('label');label.className='block text-xs font-semibold';label.textContent=etiqueta;
+   const inp=document.createElement('input');inp.type='text';inp.name=nom+suf;inp.dataset.camp=nom;inp.maxLength=max;inp.value=d[clau]||'';inp.className='block w-full border rounded p-2 bg-white mt-1';label.appendChild(inp);return label;
+  }
+  const tipusLabel=document.createElement('label');tipusLabel.className='block text-xs font-bold';tipusLabel.textContent='Tipus de propulsió';
+  const sel=document.createElement('select');sel.name='tipus_propulsio'+suf;sel.dataset.camp='tipus_propulsio';sel.className='block w-full border rounded p-2 bg-white mt-1';
+  for (const tipus of ['','Reductora','IPS','Cues','SailDrive']) {const op=document.createElement('option');op.value=tipus;op.textContent=tipus||'— Selecciona —';sel.appendChild(op)}
+  sel.value=d.tipus||'';tipusLabel.appendChild(sel);caixa.appendChild(tipusLabel);
+  const dades=document.createElement('div');dades.className='grid grid-cols-1 gap-2 sm:grid-cols-3';
+  dades.append(camp('marca','marca_propulsio','Marca'),camp('model','model_propulsio','Model'),camp('serie','serie_propulsio','Núm. de sèrie',200));caixa.appendChild(dades);
+  const transom=document.createElement('div');transom.className='rounded-lg border border-amber-200 bg-amber-50 p-2 space-y-2';
+  const tx=document.createElement('p');tx.className='text-xs font-bold';tx.textContent='🔩 Transom · motor '+(i+1);transom.appendChild(tx);
+  const txGrid=document.createElement('div');txGrid.className='grid grid-cols-1 sm:grid-cols-3 gap-2';
+  txGrid.append(camp('transomMarca','marca_transom','Marca'),camp('transomModel','model_transom','Model'),camp('transomSerie','serie_transom','Núm. de sèrie',200));transom.appendChild(txGrid);caixa.appendChild(transom);
+  function canviar(){dades.hidden=!sel.value;transom.hidden=sel.value!=='Cues';}
+  sel.addEventListener('change',canviar);canviar();desti.appendChild(caixa);
+ }
 }
-document.addEventListener('DOMContentLoaded', actualitzarCampsPropulsio);
+document.addEventListener('DOMContentLoaded',actualitzarCampsPropulsio);
 </script>
 {% endblock %}
+
+
 
 
 
