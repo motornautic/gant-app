@@ -8,6 +8,7 @@ from routes.articles import articles_bp
 from datetime import datetime, timedelta
 from db import carregar_admins, guardar_admins
 from routes.assistent_tecnic import assistent_tecnic_bp
+from routes.agendes import agendes_bp
 import os
 import pandas as pd
 import time
@@ -45,6 +46,7 @@ app.register_blueprint(tasques_bp)
 app.register_blueprint(gantt_bp)
 app.register_blueprint(articles_bp)
 app.register_blueprint(assistent_tecnic_bp)
+app.register_blueprint(agendes_bp)
 
 # 🛡️ CONTROL D'ACCÉS
 # Accés al login i al panell de l'operari; la comprovació de credencials
