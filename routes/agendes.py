@@ -119,5 +119,33 @@ def notes(task_id):
             con.execute(text('INSERT INTO agenda_notes (id,task_id,author,message,created_at) VALUES (:id,:task_id,:author,:message,:created_at)'),
               dict(id=str(uuid.uuid4()),task_id=task_id,author=user,message=message,created_at=now()))
             con.execute(text('UPDATE agenda_items SET updated_at=:ts, updated_by=:user WHERE id=:id'),{'ts':now(),'user':user,'id':task_id})
-        rows=con.execute(text('SELECT author,message,created_at FROM agenda_notes WHERE task_id=:id ORDER BY created_at,id'),{'id':task_id}).mappings().all()
+        rows=con.execute(
+            text('SELECT id,author,message,created_at FROM agenda_notes WHERE task_id=:id ORDER BY created_at,id'),
+            {'id':task_id}
+        ).mappings().all()
     return jsonify(notes=[dict(r) for r in rows])
+    
+@agendes_bp.route('/api/agendes/<task_id>/notes/<note_id>', methods=['DELETE'])
+def eliminar_nota(task_id, note_id):
+    user = who()
+
+    with ready().begin() as con:
+        result = con.execute(
+            text("""
+                DELETE FROM agenda_notes
+                WHERE id = :note_id
+                  AND task_id = :task_id
+                  AND lower(author) = lower(:user)
+            """),
+            {
+                'note_id': note_id,
+                'task_id': task_id,
+                'user': user
+            }
+        )
+
+        if result.rowcount == 0:
+            return jsonify(error='Nota no trobada o sense permís'), 403
+
+    return jsonify(ok=True)
+
