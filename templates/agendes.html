@@ -26,7 +26,57 @@ function owners(t){const v=prompt('Responsables: dani, raul o ambdós',t.owners.
 async function addTask(event){event.preventDefault();const owners=[];if(el('daniOwner').checked)owners.push('dani');if(el('raulOwner').checked)owners.push('raul');try{await api('/api/agendes',{method:'POST',body:JSON.stringify({boat:el('boat').value,title:el('title').value,owners})});el('newForm').reset();el('newForm').classList.add('hidden');await refresh();}catch(e){error(e);}}
 async function openChat(t){chatId=t.id;el('chatTitle').textContent=t.boat+' · '+t.title;el('chat').classList.remove('hidden');await refreshNotes();el('chat').scrollIntoView({behavior:'smooth'});}
 function closeChat(){chatId=null;el('chat').classList.add('hidden');}
-async function refreshNotes(){if(!chatId)return;try{const v=await api('/api/agendes/'+encodeURIComponent(chatId)+'/notes');el('notes').replaceChildren(...v.notes.map(n=>node('div','p-2 rounded bg-slate-100 text-sm',n.author+' · '+n.created_at+'\n'+n.message)));}catch(e){error(e);}}
+
+async function refreshNotes() {
+  if (!chatId) return;
+
+  try {
+    const v = await api(
+      '/api/agendes/' + encodeURIComponent(chatId) + '/notes'
+    );
+
+    const notes = v.notes.map(n => {
+      const user = (n.author || '').toLowerCase();
+
+      const esDani = user === 'admin' || user === 'dani';
+      const esRaul = user === 'raul' || user === 'raül';
+
+      const nom = esDani ? 'Dani' : esRaul ? 'Raül' : n.author;
+
+      const color = esDani
+        ? 'bg-blue-50 border-blue-300'
+        : esRaul
+          ? 'bg-green-50 border-green-300'
+          : 'bg-slate-100 border-slate-300';
+
+      const caixa = node(
+        'div',
+        'p-3 rounded-lg border-l-4 ' + color
+      );
+
+      const cap = node(
+        'div',
+        'font-bold text-sm mb-1',
+        nom + ' · ' + new Date(n.created_at).toLocaleString('ca-ES')
+      );
+
+      const missatge = node(
+        'div',
+        'text-sm whitespace-pre-wrap',
+        n.message
+      );
+
+      caixa.append(cap, missatge);
+      return caixa;
+    });
+
+    el('notes').replaceChildren(...notes);
+
+  } catch (e) {
+    error(e);
+  }
+}
+
 async function sendNote(e){e.preventDefault();try{await api('/api/agendes/'+encodeURIComponent(chatId)+'/notes',{method:'POST',body:JSON.stringify({message:el('message').value})});el('message').value='';await refreshNotes();}catch(e){error(e);}}
 refresh();setInterval(refresh,3000);
 </script>
