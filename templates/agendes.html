@@ -66,7 +66,39 @@ async function refreshNotes() {
         n.message
       );
 
+    
+      const usuariActual = {{ session.get('admin_autenticat', '') | tojson }};
+
+      if (user === usuariActual.toLowerCase()) {
+        const paperera = node(
+          'button',
+          'text-red-600 text-xs hover:text-red-800',
+          '🗑️ Esborrar'
+        );
+
+        paperera.type = 'button';
+
+        paperera.onclick = async () => {
+          if (!confirm('Vols esborrar aquesta anotació?')) return;
+
+          try {
+            await api(
+              '/api/agendes/' + encodeURIComponent(chatId) +
+              '/notes/' + encodeURIComponent(n.id),
+              { method: 'DELETE' }
+            );
+
+            await refreshNotes();
+          } catch (e) {
+            error(e);
+          }
+        };
+
+        cap.append(' · ', paperera);
+      }
+
       caixa.append(cap, missatge);
+
       return caixa;
     });
 
