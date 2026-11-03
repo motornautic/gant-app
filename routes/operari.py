@@ -351,7 +351,7 @@ def vista_operari():
     es_admin = bool(session.get("admin_autenticat"))
     
     if request.args.get("triar_operari") == "1":
-        return render_template("login_operari.html", operaris=operaris, operari_sel=None, error=request.args.get("error_auth"))
+        return render_template("login_operari.html", operaris=operaris, operari_sel=request.cookies.get('operari_saved'), error=request.args.get("error_auth"))
 
     operari_sel = session.get("operari_autenticat")
 
@@ -361,7 +361,7 @@ def vista_operari():
             operari_sel = operaris[0]
             session["operari_autenticat"] = operari_sel
         else:
-            return render_template("login_operari.html", operaris=operaris, operari_sel=None, error=request.args.get("error_auth"))
+            return render_template("login_operari.html", operaris=operaris, operari_sel=request.cookies.get('operari_saved'), error=request.args.get("error_auth"))
 
     confirm_idx = request.args.get("confirm_idx", type=int)
     edit_reg_info = {"task_idx": request.args.get("edit_task_idx", type=int), "reg_idx": request.args.get("edit_reg_idx", type=int)}
