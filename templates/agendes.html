@@ -6,7 +6,7 @@
  <div class="flex items-center flex-wrap gap-2"><select id="filter" onchange="draw()" class="p-2 rounded-lg border"><option value="actives">Actives</option><option value="totes">Totes</option><option value="fet">Finalitzades</option></select><button class="bg-blue-800 text-white px-4 py-2 rounded-lg ml-auto" onclick="toggleCreate()">＋ Nova feina</button></div>
  <form id="newForm" class="hidden bg-white p-4 rounded-xl shadow space-y-3" onsubmit="addTask(event)"><div class="text-sm font-semibold">Descriu la feina amb el nom del vaixell i la tasca</div><input id="boat" required maxlength="200" placeholder="Embarcació (o GENERAL)" class="w-full p-2 border rounded"/><input id="title" required maxlength="300" placeholder="Què s'ha de fer?" class="w-full p-2 border rounded"/><div class="flex gap-3"><label><input type="checkbox" id="daniOwner" checked/> Dani</label><label><input type="checkbox" id="raulOwner"/> Raül</label></div><button class="bg-green-700 text-white px-4 py-2 rounded">Afegir</button><p class="text-xs text-slate-500">El xat amb IA per crear tasques s'integrarà en una fase posterior. Aquesta primera versió permet crear-les directament.</p></form>
  <div id="tasks" class="space-y-3"></div>
- <div id="chat" class="hidden bg-white p-4 rounded-xl shadow space-y-3"><div class="flex justify-between"><h3 id="chatTitle" class="font-bold"></h3><button onclick="closeChat()" class="text-red-700">✕ Tancar</button></div><p class="text-xs text-slate-500">Historial de notes compartit entre Dani i Raül. Encara no és un xat amb IA.</p><div id="notes" class="max-h-72 overflow-auto space-y-2"></div><form onsubmit="sendNote(event)" class="flex gap-2"><input id="message" maxlength="5000" required placeholder="Escriu una nota o novetat..." class="flex-1 p-2 border rounded min-w-0"/><button class="bg-blue-800 text-white px-3 rounded">Enviar</button></form></div>
+ <div id="chat" class="hidden bg-white p-4 rounded-xl shadow space-y-3"><div class="flex justify-between"><h3 id="chatTitle" class="font-bold"></h3><button onclick="closeChat()" class="text-red-700">✕ Tancar</button></div><p class="text-xs text-slate-500">Notes compartides entre Dani i Raül. Pots desar una nota o consultar l’assistent IA.</p><div id="notes" class="max-h-72 overflow-auto space-y-2"></div><form onsubmit="sendNote(event)" class="flex flex-wrap gap-2"><input id="message" maxlength="5000" required placeholder="Escriu una nota o novetat..." class="flex-1 p-2 border rounded min-w-0"/><button type="submit" class="bg-blue-800 text-white px-3 py-2 rounded">Desar nota</button><button type="button" id="askAI" onclick="sendAI()" class="bg-violet-700 hover:bg-violet-800 text-white px-3 py-2 rounded">✨ Consultar IA</button></form></div>
  <p id="error" role="alert" class="text-red-700 text-sm"></p>
 </div>
 <script>
@@ -110,6 +110,41 @@ async function refreshNotes() {
 }
 
 async function sendNote(e){e.preventDefault();try{await api('/api/agendes/'+encodeURIComponent(chatId)+'/notes',{method:'POST',body:JSON.stringify({message:el('message').value})});el('message').value='';await refreshNotes();}catch(e){error(e);}}
+
+let sendingAI = false;
+async function sendAI() {
+  if (!chatId || sendingAI) return;
+  const message = el('message').value.trim();
+  if (!message) {
+    error('Escriu una consulta abans de preguntar a la IA');
+    return;
+  }
+  if (message.length > 2000) {
+    error('La consulta a la IA no pot superar 2000 caràcters');
+    return;
+  }
+  sendingAI = true;
+  const button = el('askAI');
+  button.disabled = true;
+  button.textContent = 'Consultant...';
+  el('error').textContent = '';
+  try {
+    await api('/api/agendes/' + encodeURIComponent(chatId) + '/ai', {
+      method: 'POST',
+      body: JSON.stringify({ message })
+    });
+    el('message').value = '';
+    await refreshNotes();
+  } catch (e) {
+    error(e);
+  } finally {
+    sendingAI = false;
+    button.disabled = false;
+    button.textContent = '✨ Consultar IA';
+  }
+}
+
 refresh();setInterval(refresh,3000);
 </script>
 {% endblock %}
+
