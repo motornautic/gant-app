@@ -463,22 +463,60 @@ def vista_operari():
         
     return response
 
+
 @operari_bp.route("/login_operari", methods=["POST"])
 def login_operari():
     operari_sel = (request.form.get('operari') or '').strip()
     password_input = request.form.get('password') or ''
+    recordar = request.form.get('remember') == '1'
+
     df_operaris = carregar_df_operaris()
+
     if not df_operaris.empty:
-        coincidencies = df_operaris[df_operaris['Nom'].astype(str).str.casefold() == operari_sel.casefold()]
+        coincidencies = df_operaris[
+            df_operaris['Nom'].astype(str).str.casefold()
+            == operari_sel.casefold()
+        ]
+
         if len(coincidencies) == 1:
             fila = coincidencies.iloc[0]
             nom_real = str(fila['Nom'])
-            if _es_password_valida(password_input, str(fila.get('Password','')), nom_real):
+
+            if _es_password_valida(
+                password_input,
+                str(fila.get('Password', '')),
+                nom_real
+            ):
+                session.clear()
                 session['operari_autenticat'] = nom_real
-                resp = make_response(redirect(url_for('operari.vista_operari')))
-                resp.set_cookie('operari_saved', nom_real, max_age=30*24*3600, samesite='Lax')
+                session.permanent = recordar
+
+                resp = make_response(
+                    redirect(url_for('operari.vista_operari'))
+                )
+
+                if recordar:
+                    resp.set_cookie(
+                        'operari_saved',
+                        nom_real,
+                        max_age=30 * 24 * 3600,
+                        secure=True,
+                        httponly=True,
+                        samesite='Lax'
+                    )
+                else:
+                    resp.delete_cookie('operari_saved')
+
                 return resp
-    return redirect(url_for('operari.vista_operari', triar_operari=1, error_auth=1))
+
+    return redirect(
+        url_for(
+            'operari.vista_operari',
+            triar_operari=1,
+            error_auth=1
+        )
+    )
+
 
 
 @operari_bp.route("/canviar_operari_admin", methods=["POST"])
