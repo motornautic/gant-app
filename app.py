@@ -19,6 +19,10 @@ if hasattr(time, "tzset"):
 
 app = Flask(__name__)
 app.secret_key = "clau_secret_motornautic"
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=30)
+app.config['SESSION_COOKIE_SECURE'] = True
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 
 # 📧 CONFIGURACIÓ DE CORREU PER A L'ENVIAMENT REAL (admin@motornautic.com)
 app.config['MAIL_SERVER'] = 'mail.motornautic.com'
