@@ -188,7 +188,7 @@ def consultar_ia_agenda(task_id):
         if not response.ok:
             return jsonify(error='No s’ha pogut consultar la IA. Revisa la clau, el crèdit i els registres de Railway.'), 502
         payload = response.json()
-        answer = '\\n'.join(item.get('text','') for output in payload.get('output', [])
+        answer = '\n'.join(item.get('text','') for output in payload.get('output', [])
                            for item in output.get('content', []) if item.get('type') == 'output_text').strip()
         if not answer:
             return jsonify(error='La IA no ha retornat una resposta de text'), 502
@@ -203,23 +203,4 @@ def consultar_ia_agenda(task_id):
         con.execute(text('UPDATE agenda_items SET updated_at=:ts, updated_by=:user WHERE id=:id'),
                     {'ts': timestamp, 'user': user, 'id': task_id})
     return jsonify(ok=True, answer=answer)
-'''
-new_js = '''\nlet sendingAI = false;
-async function sendAI() {
-  if (!chatId || sendingAI) return;
-  const message = el('message').value.trim();
-  if (!message) { error('Escriu una consulta abans de preguntar a la IA'); return; }
-  sendingAI = true;
-  const button = el('askAI');
-  button.disabled = true;
-  button.textContent = 'Consultant...';
-  try {
-    await api('/api/agendes/' + encodeURIComponent(chatId) + '/ai', {
-      method: 'POST', body: JSON.stringify({message})
-    });
-    el('message').value = '';
-    await refreshNotes();
-  } catch (e) { error(e); }
-  finally { sendingAI = false; button.disabled = false; button.textContent = '✨ Consultar IA'; }
-}
 
