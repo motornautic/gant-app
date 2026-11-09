@@ -2,6 +2,11 @@
 
 {% block content %}
 <style>
+/* Targetes compactes: resum sense marcador natiu de details. */
+.compacta-tasca > summary { list-style: none; }
+.compacta-tasca > summary::-webkit-details-marker { display: none; }
+.compacta-tasca[open] > summary .group-open\:hidden { display: none; }
+.compacta-tasca[open] > summary .group-open\:inline { display: inline; }
 /* Pampalluga suau; respecta l'accessibilitat i no mou les targetes. */
 @keyframes motornautic-pampalluga {
     0%, 100% { opacity: 1; }
@@ -209,6 +214,23 @@
                 {% if es_sense_data %}ring-2 ring-amber-400 border-dashed border-amber-500 bg-amber-50/20{% elif t.Prioritat == 'Urgent' %}border-2 border-red-500 bg-red-50/30 shadow-red-100{% else %}{{ border_color }}{% endif %}"
                 data-csv-index="{{ t.csv_index }}"
                 data-text-cerca="{{ t.Embarcació }} {{ t.Titol_Tasca }} {{ t.Tasques_Detall }} {{ t.Operari }}">
+                <!-- Vista compacta de l'administrador: quatre dades essencials. -->
+                <details class="group compacta-tasca" id="detalls-tasca-{{ t.csv_index }}">
+                  <summary class="cursor-pointer list-none select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded-lg" aria-label="Desplegar els detalls de la tasca {{ t.Titol_Tasca }}">
+                    <div class="flex items-start justify-between gap-2">
+                      <div class="min-w-0 flex-1 space-y-1.5">
+                        <p class="font-extrabold text-blue-900 text-xs break-words">⛵ {{ t.Embarcació }}</p>
+                        <p class="font-bold text-slate-900 text-xs break-words">🔧 {{ t.Titol_Tasca }}</p>
+                        <p class="text-[11px] text-slate-600 break-words">👷 {{ t.Operari if t.Operari else 'Sense assignar' }}</p>
+                        <p class="text-[11px] font-semibold text-blue-800">🎯 Previsió: {% if t.te_estimacio %}{{ t.hores_estimades_visual }} h{% else %}Sense previsió{% endif %}</p>
+                      </div>
+                      <span class="shrink-0 rounded-md border border-blue-200 bg-blue-50 px-2 py-1 text-[10px] font-bold text-blue-800 group-open:bg-blue-100">
+                        <span class="group-open:hidden">▾ Detalls</span><span class="hidden group-open:inline">▴ Tancar</span>
+                      </span>
+                    </div>
+                  </summary>
+                  <div class="mt-3 border-t pt-3">
+
                 
                 <div class="flex justify-between items-start mb-1 gap-1">
                     <span class="font-bold text-blue-900 text-xs truncate max-w-[130px]">⛵ {{ t.Embarcació }}</span>
@@ -370,6 +392,8 @@
                         <button type="submit" class="text-slate-400 hover:text-red-600 p-1 rounded" title="Eliminar Tasca">🗑️</button>
                     </form>
                 </div>
+                  </div>
+                </details>
             </div>
             {% else %}
             <div class="p-4 text-center text-slate-400 text-[11px] border border-dashed rounded-lg msg-sense-tasques">
@@ -927,6 +951,9 @@ function filtrarVistaEstat(estatDemanat) {
 }
 </script>
 {% endblock %}
+
+
+
 
 
 
