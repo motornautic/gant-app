@@ -222,7 +222,20 @@
                         <p class="font-extrabold text-blue-900 text-xs break-words">⛵ {{ t.Embarcació }}</p>
                         <p class="font-bold text-slate-900 text-xs break-words">🔧 {{ t.Titol_Tasca }}</p>
                         <p class="text-[11px] text-slate-600 break-words">👷 {{ t.Operari if t.Operari else 'Sense assignar' }}</p>
-                        <p class="text-[11px] font-semibold text-blue-800">🎯 Previsió: {% if t.te_estimacio %}{{ t.hores_estimades_visual }} h{% else %}Sense previsió{% endif %}</p>
+                        <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-semibold">
+                          <span class="inline-flex items-center gap-1.5 text-blue-800">
+                            🎯 Previsió: {% if t.te_estimacio %}{{ t.hores_estimades_visual }} h{% else %}Sense previsió{% endif %}
+                            {% if t.te_estimacio %}
+                            <span class="inline-block h-2.5 w-2.5 shrink-0 rounded-full {% if t.estat_estimacio == 'superat' %}bg-red-600{% elif t.estat_estimacio == 'limit' %}bg-amber-500{% else %}bg-emerald-500{% endif %}"
+                                  title="{% if t.estat_estimacio == 'superat' %}Hores superades{% elif t.estat_estimacio == 'limit' %}A prop del límit d'hores{% else %}Dins la previsió{% endif %}"></span>
+                            {% else %}<span class="inline-block h-2.5 w-2.5 shrink-0 rounded-full bg-slate-300" title="Sense previsió d'hores"></span>{% endif %}
+                          </span>
+                          <span class="crono-resum-compacte {% if not t.operaris_cronos_actius %}hidden{% endif %} inline-flex items-center gap-1 rounded-md border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-emerald-800" aria-live="polite">
+                            <span class="crono-actiu-pampalluga h-2 w-2 rounded-full bg-emerald-500"></span>
+                            <span>Treballant ara</span>
+                            <span class="crono-resum-noms font-normal">{{ t.operaris_cronos_actius|join(', ') }}</span>
+                          </span>
+                        </div>
                       </div>
                       <span class="shrink-0 rounded-md border border-blue-200 bg-blue-50 px-2 py-1 text-[10px] font-bold text-blue-800 group-open:bg-blue-100">
                         <span class="group-open:hidden">▾ Detalls</span><span class="hidden group-open:inline">▴ Tancar</span>
@@ -843,9 +856,12 @@ async function actualitzarCronosActius() {
             const noms = Array.isArray(actius[idx]) ? actius[idx] : [];
             const widget = targeta.querySelector('.crono-actiu-widget');
             const textNoms = targeta.querySelector('.crono-actiu-noms');
-            if (!widget || !textNoms) return;
-            widget.classList.toggle('hidden', noms.length === 0);
-            textNoms.textContent = noms.join(', ');
+            const resum = targeta.querySelector('.crono-resum-compacte');
+            const resumNoms = targeta.querySelector('.crono-resum-noms');
+            if (widget) widget.classList.toggle('hidden', noms.length === 0);
+            if (textNoms) textNoms.textContent = noms.join(', ');
+            if (resum) resum.classList.toggle('hidden', noms.length === 0);
+            if (resumNoms) resumNoms.textContent = noms.join(', ');
             if (noms.length) comptador++;
         });
         const comptadorNode = document.getElementById('comptador-cronos-actius');
@@ -951,6 +967,8 @@ function filtrarVistaEstat(estatDemanat) {
 }
 </script>
 {% endblock %}
+
+
 
 
 
