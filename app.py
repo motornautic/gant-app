@@ -1,5 +1,6 @@
 from flask import Flask, redirect, url_for, send_from_directory, render_template, request, jsonify, session
 from routes.operari import operari_bp
+from routes.fitxatges import fitxatges_bp
 from routes.clients import clients_bp  
 from routes.embarcacions import embarcacions_bp 
 from routes.tasques import tasques_bp
@@ -44,6 +45,7 @@ app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 
 # Enregistrar els mòduls de rutes
 app.register_blueprint(operari_bp)
+app.register_blueprint(fitxatges_bp)
 app.register_blueprint(clients_bp)
 app.register_blueprint(embarcacions_bp)
 app.register_blueprint(tasques_bp)    
@@ -76,6 +78,8 @@ RUTES_OPERARI = {
     "operari.aturar_crono",
     "operari.afegir_temps_manual",
     "operari.pagina_hores_manuals",
+    "fitxatges.calendari",
+    "fitxatges.modificar",
     "operari.pagina_detall_operari",
     "operari.modificar_nota_operari",
     "operari.registrar_sollicitud_material",
@@ -330,4 +334,3 @@ def eliminar_admin():
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=5000, debug=True)
-
