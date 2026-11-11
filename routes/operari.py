@@ -556,6 +556,8 @@ def iniciar_crono():
 
     df = carregar_tasques()
     if 0 <= idx < len(df) and operari_sel:
+        if str(df.at[idx, "Estat"]).strip().casefold() == "arxivada":
+            abort(403, "La tasca està arxivada i no es pot fitxar")
         crono_dict = {}
         json_str = str(df.at[idx, "Inici_Crono"])
         if json_str.startswith("{"):
@@ -581,6 +583,8 @@ def aturar_crono():
 
     df = carregar_tasques()
     if 0 <= idx < len(df) and operari_sel:
+        if str(df.at[idx, "Estat"]).strip().casefold() == "arxivada":
+            abort(403, "La tasca està arxivada i no es pot fitxar")
         crono_dict = {}
         json_str = str(df.at[idx, "Inici_Crono"])
         if json_str.startswith("{"):
@@ -712,6 +716,8 @@ def afegir_temps_manual():
     df = carregar_tasques()
     if not 0 <= idx < len(df):
         abort(404)
+    if str(df.at[idx, "Estat"]).strip().casefold() == "arxivada":
+        abort(403, "No es poden afegir hores a una tasca arxivada")
     operari_sel = (session.get("operari_autenticat") or "").strip()
     es_admin = bool(session.get("admin_autenticat"))
     if not (operari_sel or es_admin):
@@ -874,32 +880,38 @@ def confirmar_finalitzacio():
 
 @operari_bp.route("/eliminar_registre_hora", methods=["POST"])
 def eliminar_registre_hora():
-    idx, reg_idx = int(request.form.get("csv_index")), int(request.form.get("reg_index"))
-    operari_sel = request.form.get("operari_sel", "").strip() or session.get("operari_autenticat", "").strip()
+    from routes.fitxatges import _audit, _REGISTRE
+    nom = (session.get('operari_autenticat') or '').strip()
+    es_admin = bool(session.get('admin_autenticat'))
+    if not nom and not es_admin:
+        abort(403)
+    try:
+        idx = int(request.form['csv_index'])
+        reg_idx = int(request.form['reg_index'])
+    except (KeyError, ValueError, TypeError):
+        abort(400)
     df = carregar_tasques()
-    
-    if 0 <= idx < len(df):
-        com_actual = str(df.at[idx, "Comentaris_Operari"])
-        registres = extreure_historial_hores(com_actual)
-        
-        if 0 <= reg_idx < len(registres):
-            text_a_esborrar = registres[reg_idx]["raw_text"]
-            nou_comentari = com_actual.replace(text_a_esborrar, "").replace(" |  | ", " | ").strip(" | ")
-            
-            hores_formatades = calcular_total_formatted(nou_comentari)
-            df.at[idx, "Comentaris_Operari"] = nou_comentari
-            df.at[idx, "Hores_Imputades"] = hores_formatades
-            
-            registres_restants = extreure_historial_hores(nou_comentari)
-            crono_actiu = str(df.at[idx, "Inici_Crono"]).strip()
-            es_crono_buit = not crono_actiu or crono_actiu == "{}" or crono_actiu == "nan"
-            
-            if (hores_formatades == "0h 00m" or not registres_restants) and es_crono_buit:
-                df.at[idx, "Estat"] = "Pendent"
-                
-            guardar_tasques(df)
-            
-    return redirect(url_for("operari.vista_operari", operari=operari_sel))
+    if not 0 <= idx < len(df):
+        abort(404)
+    tasca = df.iloc[idx].to_dict()
+    if str(tasca.get('Estat') or '').strip().casefold() == 'arxivada':
+        abort(403, 'La tasca arxivada és de només lectura')
+    comentari = str(tasca.get('Comentaris_Operari') or '')
+    matchs = list(_REGISTRE.finditer(comentari))
+    if not 0 <= reg_idx < len(matchs):
+        abort(404)
+    m = matchs[reg_idx]
+    autor = (m.group(1) or 'General').strip()
+    if not es_admin and autor.casefold() != nom.casefold():
+        abort(403, 'No pots eliminar el fitxatge d’un altre operari')
+    antic = m.group(0)
+    nou = (comentari[:m.start()] + comentari[m.end():]).replace(' |  | ', ' | ').strip(' | ')
+    df.at[idx,'Comentaris_Operari'] = nou
+    df.at[idx,'Hores_Imputades'] = calcular_total_formatted(nou)
+    # No alterem l'estat global de la tasca: pot tenir altres operaris i feina pendent.
+    _audit(nom or 'ADMIN',tasca,'ELIMINAR',antic,'')
+    guardar_tasques(df)
+    return redirect(url_for('operari.vista_operari'))
 
 @operari_bp.route("/guardar_notes_operari", methods=["POST"])
 def guardar_notes_operari():
