@@ -1,0 +1,114 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="max-w-3xl mx-auto p-3 sm:p-5 space-y-4">
+  <a class="text-blue-800 font-bold text-sm" href="{{ url_for('operari.vista_operari') }}">← Tornar al panell</a>
+  <header class="bg-blue-900 text-white rounded-2xl p-5">
+    <h1 class="text-2xl font-extrabold">📅 Les meves hores</h1>
+    <p class="text-sm text-blue-100 mt-1">{{ nom }} · Consulta i corregeix els teus fitxatges</p>
+  </header>
+  {% with missatges = get_flashed_messages(with_categories=true) %}
+    {% for categoria, missatge in missatges %}
+      <div class="p-3 rounded-lg bg-green-100 text-green-900 text-sm">{{ missatge }}</div>
+    {% endfor %}
+  {% endwith %}
+  <section class="bg-white rounded-xl border p-4 space-y-3 shadow-sm">
+    <nav class="flex justify-between items-center gap-2">
+      <a href="{{ url_for('fitxatges.calendari',mes=anterior) }}" class="rounded-lg border px-3 py-2 font-bold" aria-label="Mes anterior">‹</a>
+      <h2 id="mes-titol" class="font-bold text-lg capitalize" data-any="{{ any_ }}" data-mes="{{ mes_ }}">{{ mes }}</h2>
+      <a href="{{ url_for('fitxatges.calendari',mes=seguent) }}" class="rounded-lg border px-3 py-2 font-bold" aria-label="Mes següent">›</a>
+    </nav>
+    <div class="grid grid-cols-7 gap-1 text-center">
+      {% for dia in ['Dl','Dt','Dc','Dj','Dv','Ds','Dg'] %}
+        <span class="text-xs font-bold text-slate-500 py-2">{{ dia }}</span>
+      {% endfor %}
+      {% for _ in range(primer_setmana) %}<span></span>{% endfor %}
+      {% for dia in range(1,num_dies+1) %}
+        {% set data_iso = '%04d-%02d-%02d'|format(any_,mes_,dia) %}
+        {% set minuts = totals.get(data_iso,0) %}
+        <button type="button" data-dia="{{ data_iso }}" onclick="mostrarDia(this.dataset.dia)"
+          class="dia-calendari rounded-lg border p-1 min-h-14 flex flex-col items-center justify-center hover:bg-blue-50 focus-visible:ring-2 focus-visible:ring-blue-700"
+          aria-label="Dia {{ dia }}{% if minuts %}, {{ minuts//60 }} hores i {{ minuts%60 }} minuts{% endif %}">
+          <span class="text-sm font-semibold">{{ dia }}</span>
+          {% if minuts %}<span class="text-[10px] text-emerald-800 font-bold">{{ minuts//60 }}h {{ '%02d'|format(minuts%60) }}m</span>{% endif %}
+        </button>
+      {% endfor %}
+    </div>
+    <p class="font-bold text-blue-900">Total del mes: {{ total_mes//60 }} h {{ '%02d'|format(total_mes%60) }} min</p>
+  </section>
+
+  <section class="bg-white rounded-xl border p-4 shadow-sm space-y-3" id="fitxatges-dia">
+    <h2 id="dia-titol" class="text-lg font-bold">Selecciona un dia del calendari</h2>
+    <p id="sense-registres" class="text-sm text-slate-500 hidden">Aquest dia no tens fitxatges registrats.</p>
+    {% for data_iso, registres in registres_per_dia.items() %}
+      <div class="dia-registres hidden space-y-3" data-dia="{{ data_iso }}">
+        {% set total_dia = totals.get(data_iso,0) %}
+        <p class="font-semibold text-slate-700">Total: {{ total_dia//60 }} h {{ '%02d'|format(total_dia%60) }} min</p>
+        {% for r in registres %}
+          <article class="border rounded-xl p-3 space-y-2 bg-slate-50">
+            <div class="flex items-center justify-between gap-2">
+              <strong class="text-blue-900">⛵ {{ r.embarcacio }}</strong>
+              {% if r.arxivada %}
+                <span class="text-xs rounded-full px-2 py-1 bg-slate-200 font-bold">🔒 Arxivada</span>
+              {% else %}
+                <span class="text-xs rounded-full px-2 py-1 bg-green-100 text-green-800 font-bold">{{ r.estat }}</span>
+              {% endif %}
+            </div>
+            <p class="text-sm">{{ r.titol }}</p>
+            <div class="flex justify-between gap-2 text-sm">
+              <span>{{ r.inici }} – {{ r.fi }} · {{ r.tipus }}</span>
+              <strong>{{ r.hores }}</strong>
+            </div>
+            {% if r.observacio %}
+              <details class="rounded-lg bg-amber-50 p-2 border border-amber-200">
+                <summary class="font-semibold text-sm cursor-pointer">📝 Veure observació</summary>
+                <p class="whitespace-pre-wrap text-sm mt-2">{{ r.observacio }}</p>
+              </details>
+            {% endif %}
+            {% if r.arxivada %}
+              <p class="text-xs text-slate-500">Només lectura: tasca arxivada.</p>
+            {% else %}
+              <details class="rounded-lg border bg-white p-3">
+                <summary class="cursor-pointer font-bold text-sm text-blue-800">✏️ Corregir fitxatge</summary>
+                <form method="post" action="{{ url_for('fitxatges.modificar') }}" class="mt-3 space-y-3" onsubmit="return confirm('Confirmes la correcció d’aquest fitxatge?')">
+                  <input type="hidden" name="csrf" value="{{ csrf }}">
+                  <input type="hidden" name="index_tasca" value="{{ r.index_tasca }}">
+                  <input type="hidden" name="index_registre" value="{{ r.index_registre }}">
+                  <input type="hidden" name="signatura_tasca" value="{{ r.signatura_tasca }}">
+                  <input type="hidden" name="signatura_registre" value="{{ r.signatura_registre }}">
+                  <label class="block text-xs font-semibold">Data<input class="mt-1 block w-full border rounded-lg p-2" type="date" name="data" value="{{ r.data_iso }}" required></label>
+                  <div class="grid grid-cols-2 gap-2">
+                    <label class="block text-xs font-semibold">Entrada<input class="mt-1 block w-full border rounded-lg p-2" type="time" name="inici" value="{{ r.inici }}" required></label>
+                    <label class="block text-xs font-semibold">Sortida<input class="mt-1 block w-full border rounded-lg p-2" type="time" name="fi" value="{{ r.fi }}" required></label>
+                  </div>
+                  <p class="text-xs text-slate-500">Es desarà l'historial de la correcció. Els fitxatges de tasques arxivades estan bloquejats.</p>
+                  <button class="w-full rounded-lg bg-blue-800 text-white font-bold p-3" type="submit">Desar correcció</button>
+                </form>
+              </details>
+            {% endif %}
+          </article>
+        {% endfor %}
+      </div>
+    {% endfor %}
+  </section>
+</div>
+<script>
+(function(){
+  const titol=document.getElementById('mes-titol');
+  const any=Number(titol.dataset.any), mes=Number(titol.dataset.mes)-1;
+  titol.textContent=new Intl.DateTimeFormat('ca-ES',{month:'long',year:'numeric'}).format(new Date(any,mes,1));
+  window.mostrarDia=function(iso){
+    document.querySelectorAll('.dia-registres').forEach(el=>el.classList.toggle('hidden',el.dataset.dia!==iso));
+    document.querySelectorAll('.dia-calendari').forEach(el=>{
+      el.classList.toggle('bg-blue-100',el.dataset.dia===iso);
+      el.classList.toggle('border-blue-700',el.dataset.dia===iso);
+      el.setAttribute('aria-pressed',String(el.dataset.dia===iso));
+    });
+    document.getElementById('dia-titol').textContent=new Intl.DateTimeFormat('ca-ES',{day:'numeric',month:'long',year:'numeric'}).format(new Date(iso+'T12:00:00'));
+    document.getElementById('sense-registres').classList.toggle('hidden',!!document.querySelector('.dia-registres[data-dia="'+iso+'"]'));
+  };
+  const avui=new Date(), dataAvui=[avui.getFullYear(),String(avui.getMonth()+1).padStart(2,'0'),String(avui.getDate()).padStart(2,'0')].join('-');
+  const inicial=document.querySelector('.dia-calendari[data-dia="'+dataAvui+'"]')||document.querySelector('.dia-calendari');
+  if(inicial) mostrarDia(inicial.dataset.dia);
+})();
+</script>
+{% endblock %}
