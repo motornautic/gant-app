@@ -1,6 +1,7 @@
 {% extends 'base.html' %}
 {% block content %}
-<div class="max-w-3xl mx-auto p-3 sm:p-5 space-y-4">
+{% set pantalla_actual = "hores" %}
+<div class="max-w-3xl mx-auto p-3 sm:p-5 space-y-4 pb-24 md:pb-5">
   <a class="text-blue-800 font-bold text-sm" href="{{ url_for('operari.vista_operari') }}">← Tornar al panell</a>
   <header class="bg-blue-900 text-white rounded-2xl p-5">
     <h1 class="text-2xl font-extrabold">📅 Les meves hores</h1>
@@ -111,4 +112,15 @@
   if(inicial) mostrarDia(inicial.dataset.dia);
 })();
 </script>
+
+  <!-- Navegació inferior, visible només en mòbil. -->
+  <nav aria-label="Navegació principal de l'operari" class="md:hidden fixed bottom-0 inset-x-0 z-40 bg-white border-t border-slate-200 shadow-lg" style="padding-bottom: env(safe-area-inset-bottom, 0px)">
+    <div class="grid grid-cols-4 max-w-md mx-auto">
+      <a href="{{ url_for('operari.vista_operari') }}" aria-label="Les meves tasques" {% if pantalla_actual == 'tasques' %}aria-current="page"{% endif %} class="flex flex-col items-center justify-center gap-0.5 min-h-[60px] py-2 text-xs font-bold {% if pantalla_actual == 'tasques' %}text-blue-900 bg-blue-50{% else %}text-slate-600{% endif %}"><span aria-hidden="true" class="text-xl">📋</span>Tasques</a>
+      <a href="{{ url_for('fitxatges.calendari') }}" aria-label="Les meves hores" {% if pantalla_actual == 'hores' %}aria-current="page"{% endif %} class="flex flex-col items-center justify-center gap-0.5 min-h-[60px] py-2 text-xs font-bold {% if pantalla_actual == 'hores' %}text-blue-900 bg-blue-50{% else %}text-slate-600{% endif %}"><span aria-hidden="true" class="text-xl">📅</span>Hores</a>
+      <a href="/embarcacions" aria-label="Consultar embarcacions" class="flex flex-col items-center justify-center gap-0.5 min-h-[60px] py-2 text-xs font-bold text-slate-600"><span aria-hidden="true" class="text-xl">⛵</span>Barcos</a>
+      <a href="{{ url_for('operari.vista_operari', _anchor='perfil-operari') }}" aria-label="El meu perfil" class="flex flex-col items-center justify-center gap-0.5 min-h-[60px] py-2 text-xs font-bold text-slate-600"><span aria-hidden="true" class="text-xl">👤</span>Perfil</a>
+    </div>
+  </nav>
+
 {% endblock %}
