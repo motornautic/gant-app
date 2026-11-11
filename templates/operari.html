@@ -27,6 +27,8 @@
     </div>
   </div>
 
+  <a href="{{ url_for('fitxatges.calendari') }}" class="block bg-white border-2 border-blue-200 text-blue-900 rounded-xl p-4 shadow-sm text-center font-extrabold text-lg">📅 Les meves hores · Consultar i corregir fitxatges →</a>
+
   {% if request.args.get('pwd_ok') %}<div class="p-3 bg-green-100 text-green-900 rounded-lg">Contrasenya actualitzada.</div>{% endif %}
   {% if request.args.get('pwd_err') %}<div class="p-3 bg-red-100 text-red-900 rounded-lg">No s'ha pogut canviar la contrasenya. Comprova les dades.</div>{% endif %}
 
@@ -352,4 +354,6 @@ async function eliminarMaterialPendent(form, event) {
 }
 </script>
 {% endblock %}
+
+
 
