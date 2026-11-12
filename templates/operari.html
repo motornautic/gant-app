@@ -1,7 +1,6 @@
 {% extends "base.html" %}
 {% block content %}
-{% set pantalla_actual = "tasques" %}
-<div class="max-w-6xl mx-auto space-y-4 pb-24 md:pb-0">
+<div class="max-w-6xl mx-auto space-y-5">
   <div class="rounded-2xl bg-blue-900 text-white p-5 shadow flex flex-wrap items-center justify-between gap-3">
     <div>
       <p class="text-xs uppercase tracking-wider text-blue-200 font-bold">Panell de treball</p>
@@ -33,7 +32,7 @@
   {% if request.args.get('pwd_ok') %}<div class="p-3 bg-green-100 text-green-900 rounded-lg">Contrasenya actualitzada.</div>{% endif %}
   {% if request.args.get('pwd_err') %}<div class="p-3 bg-red-100 text-red-900 rounded-lg">No s'ha pogut canviar la contrasenya. Comprova les dades.</div>{% endif %}
 
-  <details id="perfil-operari" class="bg-white rounded-xl border shadow-sm p-4 scroll-mt-5">
+  <details class="bg-white rounded-xl border shadow-sm p-4">
     <summary class="font-bold cursor-pointer">👤 El meu perfil i contrasenya</summary>
     <div class="mt-4 grid md:grid-cols-2 gap-5 text-sm">
       <div class="space-y-2">
@@ -52,30 +51,42 @@
   </details>
 
   {% if tasques %}
-  <div class="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
+  <div class="sticky top-0 z-20 bg-slate-100/95 backdrop-blur py-2">
+    <div class="relative">
+      <input id="cerca-tasques" type="search" inputmode="search" autocomplete="off"
+             placeholder="🔍 Cerca embarcació o tasca..."
+             class="w-full border-2 border-blue-200 rounded-xl p-3 pr-10 text-base shadow-sm focus:border-blue-500 focus:outline-none">
+      <button id="cerca-neteja" type="button" class="hidden absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 text-xl font-bold" aria-label="Netejar">✕</button>
+    </div>
+    <p id="cerca-comptador" class="text-xs text-slate-500 mt-1 px-1"></p>
+  </div>
+  <p id="cerca-buit" class="hidden bg-white rounded-xl border p-6 text-center text-slate-600 font-semibold">Cap tasca coincideix amb la cerca.</p>
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
     {% for t in tasques %}
-    <article class="bg-white border rounded-2xl shadow-sm p-3 sm:p-4 space-y-3" id="tasca-{{ t.csv_index }}">
-      <div class="space-y-2">
-        <div class="text-center border-b border-slate-100 pb-2">
+    <article class="bg-white border rounded-2xl shadow-sm p-4 space-y-4" id="tasca-{{ t.csv_index }}" data-cerca="{{ (t.Embarcació ~ ' ' ~ t.Titol_Tasca)|lower }}">
+      <div class="space-y-3">
+        <div class="text-center border-b border-slate-100 pb-3">
           <a href="{{ url_for('embarcacions.fitxa_embarcacio', nom=t.Embarcació) }}" class="inline-block text-xl sm:text-2xl font-extrabold text-blue-900 leading-tight underline decoration-blue-300 underline-offset-4 hover:text-blue-600" title="Veure fitxa de l’embarcació">⛵ {{ t.Embarcació }} <span class="text-sm">↗</span></a>
           <h3 class="text-lg font-bold text-slate-900 mt-2">{{ t.Titol_Tasca }}</h3>
         </div>
         <div class="flex justify-center">
           <span class="text-xs font-bold px-3 py-1 rounded-lg {% if t.Estat == 'Finalitzada' %}bg-green-100 text-green-800{% elif t.Estat == 'Esperant Recanvi' %}bg-amber-100 text-amber-800{% elif t.Estat == 'En Curs' %}bg-blue-100 text-blue-800{% else %}bg-slate-100 text-slate-800{% endif %}">{{ t.Estat }}</span>
         </div>
-        <details class="rounded-lg bg-slate-50 border border-slate-200 px-3 py-2">
-          <summary class="cursor-pointer text-xs font-semibold text-blue-900">📅 Dates de la tasca · Veure</summary>
-          <div class="grid grid-cols-2 gap-2 mt-2 text-center text-sm">
-            <div><p class="text-xs text-slate-600">Inici</p><p class="font-bold">{{ t.Data_Inici|format_data }}</p></div>
-            <div><p class="text-xs text-slate-600">Fi</p><p class="font-bold">{{ (t.Data_Fi|format_data) if t.Data_Fi else 'Sense data' }}</p></div>
+        <div class="grid grid-cols-2 gap-3 text-center">
+          <div class="bg-slate-50 rounded-xl border p-3">
+            <p class="text-sm font-semibold text-slate-600">📅 Data inici</p>
+            <p class="text-base sm:text-lg font-bold text-slate-900 mt-1">{{ t.Data_Inici|format_data }}</p>
           </div>
-        </details>
+          <div class="bg-slate-50 rounded-xl border p-3">
+            <p class="text-sm font-semibold text-slate-600">📅 Data fi</p>
+            <p class="text-base sm:text-lg font-bold text-slate-900 mt-1">{{ (t.Data_Fi|format_data) if t.Data_Fi else 'Sense data' }}</p>
+          </div>
+        </div>
       </div>
       {% if t.Prioritat == 'Urgent' %}<p class="bg-red-100 text-red-800 font-bold text-xs rounded p-2">🔴 TASCA URGENT</p>{% endif %}
       {% if t.Tasques_Detall %}
-      <details class="bg-slate-50 rounded-lg p-3">
-        <summary class="text-sm font-bold text-slate-700 cursor-pointer">📋 Treballs previstos · Veure</summary>
-        <div class="mt-2">
+      <div class="bg-slate-50 rounded-lg p-3">
+        <p class="text-xs font-bold text-slate-600 mb-2">Treballs previstos</p>
         {% for item in t.checklist %}
           <label class="flex items-start gap-3 rounded-lg py-2 cursor-pointer select-none" for="check-{{ t.csv_index }}-{{ item.item_index }}">
             <input type="checkbox" id="check-{{ t.csv_index }}-{{ item.item_index }}"
@@ -86,12 +97,11 @@
           </label>
         {% else %}<p class="text-sm whitespace-pre-wrap">{{ t.Tasques_Detall }}</p>{% endfor %}
         <p id="check-status-{{ t.csv_index }}" class="text-xs text-slate-500" aria-live="polite"></p>
-        </div>
-      </details>
+      </div>
       {% endif %}
 
-      <div class="rounded-xl border-2 border-blue-200 bg-blue-50/40 p-3 space-y-3">
-        <p class="text-base font-bold">⏱️ Control de temps <span class="text-blue-800">{{ t.hores_formatted }}</span></p>
+      <div class="rounded-xl border p-3 space-y-3">
+        <p class="text-sm font-bold">⏱️ Control de temps <span class="text-blue-800">{{ t.hores_formatted }}</span></p>
         {% if t.crono_actiu_operari %}
         <div class="bg-green-100 text-green-900 text-sm font-bold rounded-lg p-2">🟢 Cronòmetre en marxa des de {{ t.crono_actiu_operari }}</div>
         <button type="button" onclick="document.getElementById('modal-aturar-{{ t.csv_index }}').showModal()" class="w-full bg-red-600 text-white font-bold rounded-lg p-3">⏹️ Aturar cronòmetre</button>
@@ -353,16 +363,41 @@ async function eliminarMaterialPendent(form, event) {
   return false;
 }
 </script>
+<script>
+(function () {
+  const input = document.getElementById('cerca-tasques');
+  if (!input) return;
+  const neteja = document.getElementById('cerca-neteja');
+  const comptador = document.getElementById('cerca-comptador');
+  const buit = document.getElementById('cerca-buit');
+  const targetes = Array.from(document.querySelectorAll('article[data-cerca]'));
+  const norm = s => (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
 
-  <!-- Navegació inferior, visible només en mòbil. -->
-  <nav aria-label="Navegació principal de l'operari" class="md:hidden fixed bottom-0 inset-x-0 z-40 bg-white border-t border-slate-200 shadow-lg" style="padding-bottom: env(safe-area-inset-bottom, 0px)">
-    <div class="grid grid-cols-4 max-w-md mx-auto">
-      <a href="{{ url_for('operari.vista_operari') }}" aria-label="Les meves tasques" {% if pantalla_actual == 'tasques' %}aria-current="page"{% endif %} class="flex flex-col items-center justify-center gap-0.5 min-h-[60px] py-2 text-xs font-bold {% if pantalla_actual == 'tasques' %}text-blue-900 bg-blue-50{% else %}text-slate-600{% endif %}"><span aria-hidden="true" class="text-xl">📋</span>Tasques</a>
-      <a href="{{ url_for('fitxatges.calendari') }}" aria-label="Les meves hores" {% if pantalla_actual == 'hores' %}aria-current="page"{% endif %} class="flex flex-col items-center justify-center gap-0.5 min-h-[60px] py-2 text-xs font-bold {% if pantalla_actual == 'hores' %}text-blue-900 bg-blue-50{% else %}text-slate-600{% endif %}"><span aria-hidden="true" class="text-xl">📅</span>Hores</a>
-      <a href="/embarcacions" aria-label="Consultar embarcacions" class="flex flex-col items-center justify-center gap-0.5 min-h-[60px] py-2 text-xs font-bold text-slate-600"><span aria-hidden="true" class="text-xl">⛵</span>Barcos</a>
-      <a href="{{ url_for('operari.vista_operari', _anchor='perfil-operari') }}" aria-label="El meu perfil" class="flex flex-col items-center justify-center gap-0.5 min-h-[60px] py-2 text-xs font-bold text-slate-600"><span aria-hidden="true" class="text-xl">👤</span>Perfil</a>
-    </div>
-  </nav>
+  function filtrar() {
+    const q = norm(input.value);
+    let visibles = 0;
+    targetes.forEach(a => {
+      const ok = !q || norm(a.dataset.cerca).includes(q);
+      a.classList.toggle('hidden', !ok);
+      if (ok) visibles++;
+    });
+    neteja.classList.toggle('hidden', !q);
+    comptador.textContent = q ? `${visibles} de ${targetes.length} tasques` : '';
+    buit.classList.toggle('hidden', visibles > 0 || !q);
+    try { sessionStorage.setItem('cercaTasques', input.value); } catch (e) {}
+  }
 
+  input.addEventListener('input', filtrar);
+  neteja.addEventListener('click', () => { input.value = ''; filtrar(); input.focus(); });
+
+  // Recupera la cerca si la pàgina es recarrega (p. ex. després de finalitzar una tasca)
+  try { input.value = sessionStorage.getItem('cercaTasques') || ''; } catch (e) {}
+  filtrar();
+})();
+</script>
 {% endblock %}
+
+
+
+
 
