@@ -1,4 +1,4 @@
-from flask import Flask, redirect, url_for, send_from_directory, render_template, request, jsonify, session
+from flask import Flask, redirect, url_for, send_from_directory, render_template, request, jsonify, session, abort
 from routes.operari import operari_bp
 from routes.fitxatges import fitxatges_bp
 from routes.clients import clients_bp  
@@ -182,7 +182,14 @@ def carregar_csv_local(fitxer):
 
 @app.route('/uploads/<path:filename>')
 def serve_upload(filename):
-    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
+    # Els fitxers pujats (fotos, PDF) poden contenir dades de clients:
+    # només s'hi accedeix amb sessió d'administrador o d'operari.
+    if not (session.get("admin_autenticat") or session.get("operari_autenticat")):
+        abort(403)
+    resposta = send_from_directory(app.config['UPLOAD_FOLDER'], filename)
+    resposta.headers['Cache-Control'] = 'private, no-store'
+    resposta.headers['X-Content-Type-Options'] = 'nosniff'
+    return resposta
 
 @app.route("/")
 def index():
@@ -334,3 +341,4 @@ def eliminar_admin():
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=5000, debug=True)
+
