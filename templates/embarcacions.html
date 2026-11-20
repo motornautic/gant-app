@@ -88,9 +88,11 @@
                                     <option value="{{ m }}" {% if emb_edit.Model_Motor == m %}selected{% endif %}>{{ m }}</option>
                                 {% endfor %}
                             {% endif %}
-                            <option value="ALTRES" {% if emb_edit and emb_edit.Model_Motor %}selected{% endif %}>➕ Altres / Nou Model...</option>
+                            {% set model_a_llista = emb_edit and emb_edit.Marca_Motor in dic_motors and emb_edit.Model_Motor in dic_motors[emb_edit.Marca_Motor] %}
+                            {% set model_nou = emb_edit and emb_edit.Model_Motor and not model_a_llista %}
+                            <option value="ALTRES" {% if model_nou %}selected{% endif %}>➕ Altres / Nou Model...</option>
                         </select>
-                        <input type="text" id="model_custom_form" name="model_motor_custom" value="{{ emb_edit.Model_Motor if emb_edit else '' }}" placeholder="Escriu el nou model..." class="w-full p-2 border rounded text-xs bg-amber-50 mt-1 font-bold" style="display:none;">
+                        <input type="text" id="model_custom_form" name="model_motor_custom" value="{{ emb_edit.Model_Motor if model_nou else '' }}" placeholder="Escriu el nou model..." class="w-full p-2 border rounded text-xs bg-amber-50 mt-1 font-bold" style="{% if model_nou %}display:block;{% else %}display:none;{% endif %}">
                     </div>
                     <div>
                         <label class="block text-xs font-semibold mb-1">Número de Motors</label>
@@ -434,8 +436,11 @@ function carregarModelsForm() {
 
 function checkModelCustomForm() {
     let modelVal = document.getElementById("model_form").value;
-    let inputModelCustom = document.getElementById("input_model_custom");
-    if (inputModelCustom) inputModelCustom.style.display = (modelVal === "ALTRES") ? "block" : "none";
+    let inputModelCustom = document.getElementById("model_custom_form");
+    if (inputModelCustom) {
+        inputModelCustom.style.display = (modelVal === "ALTRES") ? "block" : "none";
+        if (modelVal === "ALTRES") inputModelCustom.focus();
+    }
 }
 
 function toggleDocForm(val) {
