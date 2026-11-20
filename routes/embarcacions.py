@@ -153,7 +153,19 @@ def carregar_diccionari_motors():
                     for m in models:
                         if m not in dic[marca]: dic[marca].append(m)
         except Exception: pass
-    return {k: sorted(dic[k]) for k in sorted(dic.keys())}
+    # Els fitxers locals es poden perdre en desplegar: recuperem també els models
+    # ja desats a les embarcacions perquè mai desapareguin del desplegable.
+    try:
+        for _, fila in carregar_embarcacions().iterrows():
+            marca = str(fila.get('Marca_Motor', '') or '').strip()
+            model = str(fila.get('Model_Motor', '') or '').strip()
+            if marca and marca.lower() != 'nan':
+                dic.setdefault(marca, [])
+                if model and model.lower() != 'nan' and model not in dic[marca]:
+                    dic[marca].append(model)
+    except Exception as err:
+        print('Catàleg de motors: no es poden llegir embarcacions:', err)
+    return {k: sorted(set(dic[k]), key=str.casefold) for k in sorted(dic.keys())}
 
 def guardar_nou_motor_custom(marca, model):
     dic_custom = {}
